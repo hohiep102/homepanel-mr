@@ -29,8 +29,10 @@ jobs:
       - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
         with:
           cache-read-only: ${{ github.event_name == 'pull_request' }}
-      - name: Prepare Android SDK
-        run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - name: Verify preinstalled Android SDK
+        run: |
+          test -f "$ANDROID_HOME/platforms/android-36/android.jar"
+          test -x "$ANDROID_HOME/build-tools/36.0.0/aapt2"
       - name: Build both distributions and run checks
         run: >-
           ./gradlew --no-daemon --console=plain
