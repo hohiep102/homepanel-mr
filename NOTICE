@@ -1,0 +1,18 @@
+HomePanel MR
+Copyright 2026 Hồ Hiệp and HomePanel MR contributors
+
+HomePanel MR is an independent Home Assistant client for Meta Quest.
+It is not affiliated with or endorsed by the Open Home Foundation or Meta.
+
+The Apache-2.0 license in LICENSE covers original HomePanel MR source code.
+Third-party dependencies, SDKs, notices, and licenses retain their own terms.
+The Meta Spatial SDK and Meta Platform SDK are governed by Meta's SDK terms;
+they are downloaded as build dependencies and are not relicensed here.
+
+The Gradle wrapper retains its upstream licensing. Meta Spatial SDK samples
+were consulted as references; their MIT notice is retained in
+docs/META-SAMPLES-LICENSE.txt. This project does not incorporate Home Assistant
+or Immersive Home application source code.
+
+Dependency notices are included in the application under About and in
+app/src/{community,store}/assets/legal/THIRD_PARTY_NOTICES.txt.

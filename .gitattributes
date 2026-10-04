@@ -1,0 +1,8 @@
+* text=auto eol=lf
+gradlew.bat text eol=crlf
+*.jar -text
+*.png -text
+*.p12 -text
+# Preserve verbatim upstream license text, including its whitespace.
+app/src/**/assets/legal/** -whitespace
+docs/META-SAMPLES-LICENSE.txt -whitespace

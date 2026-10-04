@@ -1,0 +1,24 @@
+name: Feature request / Đề xuất tính năng
+description: Explain a problem HomePanel MR could solve.
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: English or Vietnamese is welcome. Describe the user need and current workaround.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Explain the expected flow and which HA device types or Quest interactions it affects.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives and context
+      description: Optional examples, sketches, or tradeoffs. Avoid private home data.

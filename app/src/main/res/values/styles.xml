@@ -1,0 +1,16 @@
+<resources>
+  <style name="AppTheme" parent="android:style/Theme.Material.NoActionBar">
+    <item name="android:fontFamily">sans</item>
+    <item name="android:windowLightStatusBar">false</item>
+    <item name="android:statusBarColor">#091319</item>
+    <item name="android:navigationBarColor">#091319</item>
+    <item name="android:windowActionModeOverlay">true</item>
+  </style>
+  <style name="PanelTheme" parent="AppTheme">
+    <item name="android:windowBackground">@android:color/transparent</item>
+  </style>
+  <item name="home_panel" type="id" />
+  <item name="device_panel" type="id" />
+  <item name="target_panel" type="id" />
+  <item name="room_navigation" type="id" />
+</resources>

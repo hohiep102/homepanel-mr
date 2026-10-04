@@ -1,0 +1,40 @@
+package vn.homepanel.ha
+
+/** A UI projection only. The complete HA catalog and saved bindings are never deleted. */
+private val everydayDomains = setOf(
+    "light", "climate", "fan", "cover", "switch", "input_boolean", "media_player",
+    "lock", "vacuum", "water_heater", "humidifier", "alarm_control_panel", "camera", "valve",
+)
+private val roomSensorClasses = setOf(
+    "temperature", "humidity", "carbon_dioxide", "carbon_monoxide", "aqi", "pm1", "pm25", "pm10",
+    "volatile_organic_compounds", "volatile_organic_compounds_parts", "illuminance", "power", "energy",
+    "gas", "water", "volume", "volume_storage", "volume_flow_rate", "pressure", "atmospheric_pressure", "moisture",
+)
+private val roomBinaryClasses = setOf(
+    "door", "window", "opening", "garage_door", "motion", "occupancy", "presence",
+    "smoke", "gas", "carbon_monoxide", "moisture", "safety", "tamper", "lock",
+)
+private val roomSensorUnits = setOf("°C", "°F", "%", "W", "kW", "Wh", "kWh", "MWh", "ppm", "lx", "µg/m³", "μg/m³", "m³", "m3", "L", "l")
+
+fun HaEntity.isEveryday(): Boolean {
+    if (hidden || disabled || category != null) return false
+    if (domain in everydayDomains) return true
+    val deviceClass = attributes.nullString("device_class")
+    return when (domain) {
+        "sensor" -> if (deviceClass != null) deviceClass in roomSensorClasses else attributes.nullString("unit_of_measurement") in roomSensorUnits
+        "binary_sensor" -> deviceClass in roomBinaryClasses
+        else -> false
+    }
+}
+
+fun deviceCatalogForDisplay(catalog: Catalog, showAll: Boolean = false): Catalog {
+    if (showAll) return catalog
+    val devices = catalog.devices.mapNotNull { device ->
+        val entities = device.entities.filter { it.isEveryday() }
+        if (entities.isEmpty()) null else {
+            val areaIds = entities.mapNotNull { it.areaId }.toSet()
+            device.copy(entities = entities, areaIds = areaIds, area = areaIds.map { catalog.areas[it] ?: it }.distinct().joinToString(" · "))
+        }
+    }
+    return catalog.copy(devices = devices)
+}

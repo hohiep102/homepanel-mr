@@ -1,0 +1,47 @@
+name: Bug report / Báo lỗi
+description: Report a reproducible problem in HomePanel MR.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: "English or Vietnamese is welcome. Remove passwords, tokens, private server details, and personal room images. Report security vulnerabilities using the private security link below."
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      placeholder: "Example: 1.0.1; commit SHA if built from source"
+    validations:
+      required: true
+  - type: dropdown
+    id: edition
+    attributes:
+      label: Distribution
+      options: [Community, Store, Custom build]
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Headset model, Quest OS, Home Assistant version, app language, and hand/controller input. Specify emulator or fixture if applicable.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. Open…\n2. Select…\n3. Observe…"
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Sanitized logs or screenshots
+      description: Optional. Use demo or synthetic data where possible.
