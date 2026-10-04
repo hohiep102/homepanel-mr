@@ -52,3 +52,5 @@ CI chạy build, unit tests và lint cho cả hai bản; không dùng khóa ký 
 Mã HomePanel tự viết dùng [Apache-2.0](LICENSE). Các SDK/phụ thuộc giữ giấy phép riêng, gồm các điều khoản SDK của Meta; xem [NOTICE](NOTICE) và mục Thông tin → Giấy phép bên thứ ba trong app. HomePanel là dự án độc lập, không được Open Home Foundation hoặc Meta bảo trợ.
 
 Không đưa token, mật khẩu, địa chỉ server riêng hoặc ảnh phòng cá nhân lên issue/PR. Báo lỗ hổng qua [kênh bảo mật riêng](SECURITY.md).
+
+[Website](https://homepanel-mr.pages.dev/) · [Quyền riêng tư](https://homepanel-mr.pages.dev/privacy/) · [Hỗ trợ](https://homepanel-mr.pages.dev/support/)

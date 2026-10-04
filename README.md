@@ -77,4 +77,4 @@ Original HomePanel code is licensed under [Apache-2.0](LICENSE). Dependency lice
 
 HomePanel MR is an independent project. It is not affiliated with or endorsed by the Open Home Foundation or Meta, and it does not incorporate Home Assistant or Immersive Home application source.
 
-[Privacy](https://srv1117516.hstgr.cloud/homepanel-mr/privacy/) · [Support](https://srv1117516.hstgr.cloud/homepanel-mr/support/) · [Security reporting](SECURITY.md)
+[Website](https://homepanel-mr.pages.dev/) · [Privacy](https://homepanel-mr.pages.dev/privacy/) · [Support](https://homepanel-mr.pages.dev/support/) · [Security reporting](SECURITY.md)

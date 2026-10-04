@@ -29,8 +29,8 @@ import vn.homepanel.R
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 if (notices) Text(licenses)
                 else {
-                    TextButton(onClick = { uri.openUri("https://srv1117516.hstgr.cloud/homepanel-mr/privacy/") }) { Text(stringResource(R.string.privacy_policy)) }
-                    TextButton(onClick = { uri.openUri("https://srv1117516.hstgr.cloud/homepanel-mr/support/") }) { Text(stringResource(R.string.support)) }
+                    TextButton(onClick = { uri.openUri("https://homepanel-mr.pages.dev/privacy/") }) { Text(stringResource(R.string.privacy_policy)) }
+                    TextButton(onClick = { uri.openUri("https://homepanel-mr.pages.dev/support/") }) { Text(stringResource(R.string.support)) }
                     TextButton(onClick = { notices = true }) { Text(stringResource(R.string.third_party_notices)) }
                     Text(stringResource(R.string.about_compatibility))
                 }

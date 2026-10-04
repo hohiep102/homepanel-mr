@@ -35,6 +35,7 @@ __pycache__/
 !/docs/DISTRIBUTIONS.md
 !/docs/TESTING.md
 !/docs/HAND_TESTING.md
+!/docs/WEBSITE.md
 !/docs/META-SAMPLES-LICENSE.txt
 !/docs/images/
 /docs/images/*
@@ -45,3 +46,4 @@ __pycache__/
 !/scripts/create-release-key.py
 !/scripts/install-quest.sh
 !/scripts/generate-notices.py
+!/scripts/build-public-site.py
