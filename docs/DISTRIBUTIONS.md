@@ -1,6 +1,6 @@
 # Community and Store distributions
 
-HomePanel MR 1.0.1 (version code 14) uses one shared HA/UI/MR implementation with Gradle product flavors for distribution-specific access.
+HomePanel MR 1.0.2 (version code 15) uses one shared HA/UI/MR implementation with Gradle product flavors for distribution-specific access.
 
 | | Community | Store |
 |---|---|---|
@@ -50,7 +50,7 @@ For a new independent distribution only, `scripts/create-release-key.py --editio
 
 The old beta package `vn.homepanel.mr` is separate. Community and Store do not automatically copy credentials, Android Keystore material, or room bindings from each other or the beta. Keep the existing app installed until you have configured the new edition.
 
-Store 1.0.1 retains the package, signing identity, and return URI of Store 1.0.0. Separating the flavors did not replace the initial Store submission. The source repository contains both implementations; only Community is intended for unrestricted sideload use.
+Store 1.0.2 retains the package, signing identity, and return URI of Store 1.0.0. Separating the flavors did not replace the initial Store submission. The source repository contains both implementations; only Community is intended for unrestricted sideload use.
 
 ## Dependency notices
 

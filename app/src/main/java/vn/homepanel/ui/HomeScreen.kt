@@ -72,12 +72,8 @@ private val Corners = RoundedCornerShape(20.dp)
         return
     }
     HomeTheme {
-        if (showHandHelp) AlertDialog(
-            onDismissRequest = { showHandHelp = false },
-            title = { Text(stringResource(R.string.hands_title)) },
-            text = { Text(stringResource(R.string.hands_help), Modifier.verticalScroll(rememberScrollState())) },
-            confirmButton = { TextButton(onClick = { showHandHelp = false }) { Text(stringResource(R.string.hands_understood)) } },
-        )
+        // Drawn inside the panel: Spatial SDK panels cannot host a separate Dialog window.
+        Box(Modifier.fillMaxSize()) {
         Surface(color = Ink, modifier = Modifier.fillMaxSize()) {
             Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
@@ -217,6 +213,20 @@ private val Corners = RoundedCornerShape(20.dp)
                         }
                     }
                 }
+            }
+        }
+        if (showHandHelp) HandHelp { showHandHelp = false }
+        }
+    }
+}
+
+@Composable private fun HandHelp(onDismiss: () -> Unit) {
+    Box(Modifier.fillMaxSize().background(Color(0xB3000000)).clickable(onClick = onDismiss).testTag("hand-help"), contentAlignment = Alignment.Center) {
+        Surface(color = Card, shape = Corners, modifier = Modifier.widthIn(max = 560.dp).padding(24.dp).clickable(enabled = false) {}) {
+            Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text(stringResource(R.string.hands_title), fontWeight = FontWeight.Bold, fontSize = 22.sp)
+                Text(stringResource(R.string.hands_help), Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()), color = Muted)
+                TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) { Text(stringResource(R.string.hands_understood)) }
             }
         }
     }
