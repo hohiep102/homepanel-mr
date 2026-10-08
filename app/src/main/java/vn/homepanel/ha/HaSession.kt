@@ -6,6 +6,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flowOn
 import okhttp3.*
 import org.json.JSONArray
 import org.json.JSONObject
@@ -114,7 +115,66 @@ class HaSession(private val address: ServerAddress, private val token: String, p
         }
     }
     override fun close() { fail(HaFailure(R.string.not_connected)) }
+    /** One still image from HA's camera proxy, authenticated with this session's token. Never follows redirects. */
+    suspend fun cameraSnapshot(entityId: String): ByteArray = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        require(cameraEntity.matches(entityId)) { "Not a camera entity." }
+        val request = Request.Builder().url("${address.base}/api/camera_proxy/$entityId").header("Authorization", "Bearer $token").build()
+        cameraHttp(http).newCall(request).execute().use { response ->
+            if (!response.isSuccessful || response.body?.contentType()?.type != "image") throw HaFailure(R.string.camera_unavailable, code = response.code.toString())
+            val body = response.body ?: throw HaFailure(R.string.camera_unavailable)
+            if (body.contentLength() > MAX_SNAPSHOT) throw HaFailure(R.string.camera_unavailable)
+            body.byteStream().use { input -> input.readNBytes(MAX_SNAPSHOT + 1).also { if (it.size > MAX_SNAPSHOT) throw HaFailure(R.string.camera_unavailable) } }
+        }
+    }
+    /**
+     * HLS playlist for a camera HA streams as video (most RTSP cameras), with the client to fetch it. HA's
+     * path carries its own short-lived token; anything but a path on this server is refused.
+     */
+    suspend fun cameraHls(entityId: String): Pair<String, OkHttpClient> {
+        require(cameraEntity.matches(entityId)) { "Not a camera entity." }
+        val path = command(JSONObject().put("type", "camera/stream").put("entity_id", entityId).put("format", "hls")).optJSONObject("result")?.nullString("url")
+        if (path == null || !path.startsWith("/api/hls/")) throw HaFailure(R.string.camera_unavailable, code = "hls")
+        return address.base + path to http
+    }
+    /**
+     * Live frames from HA's MJPEG proxy until the collector stops. HA serves every camera this way,
+     * re-encoding RTSP-only cameras, so no stream URL or codec is needed on the headset.
+     */
+    fun cameraStream(entityId: String): kotlinx.coroutines.flow.Flow<ByteArray> = kotlinx.coroutines.flow.flow {
+        require(cameraEntity.matches(entityId)) { "Not a camera entity." }
+        val request = Request.Builder().url("${address.base}/api/camera_proxy_stream/$entityId").header("Authorization", "Bearer $token").build()
+        val call = streamHttp(http).newCall(request)
+        // A blocking read does not notice cancellation; cancelling the call ends it.
+        val stop = kotlinx.coroutines.currentCoroutineContext()[kotlinx.coroutines.Job]?.invokeOnCompletion { call.cancel() }
+        try {
+            call.execute().use { response ->
+                if (!response.isSuccessful || response.body?.contentType()?.type != "multipart") throw HaFailure(R.string.camera_unavailable, code = response.code.toString())
+                val source = response.body!!.source()
+                while (true) emit(nextJpeg(source, MAX_SNAPSHOT) ?: break)
+            }
+        } finally { stop?.dispose() }
+    }.flowOn(kotlinx.coroutines.Dispatchers.IO)
     companion object {
+        private val SOI = okio.ByteString.of(0xFF.toByte(), 0xD8.toByte())
+        private val EOI = okio.ByteString.of(0xFF.toByte(), 0xD9.toByte())
+        /** The next JPEG in a multipart stream, found by its start/end markers; null at the end of the stream. */
+        internal fun nextJpeg(source: okio.BufferedSource, max: Int): ByteArray? {
+            val start = source.indexOf(SOI)
+            if (start < 0) return null
+            source.skip(start)
+            val end = source.indexOf(EOI, 2)
+            if (end < 0) return null
+            if (end + 2 > max) throw HaFailure(R.string.camera_unavailable)
+            return source.readByteArray(end + 2)
+        }
+        private var streamClient: Pair<OkHttpClient, OkHttpClient>? = null
+        @Synchronized private fun streamHttp(base: OkHttpClient): OkHttpClient =
+            streamClient?.takeIf { it.first === base }?.second ?: base.newBuilder().followRedirects(false).followSslRedirects(false).readTimeout(15, TimeUnit.SECONDS).build().also { streamClient = base to it }
         private val sharedHttp = OkHttpClient.Builder().pingInterval(20, TimeUnit.SECONDS).connectTimeout(12, TimeUnit.SECONDS).build()
+        private val cameraEntity = Regex("camera\\.[a-z0-9_]+")
+        private const val MAX_SNAPSHOT = 6 * 1024 * 1024
+        private var cameraClient: Pair<OkHttpClient, OkHttpClient>? = null
+        @Synchronized private fun cameraHttp(base: OkHttpClient): OkHttpClient =
+            cameraClient?.takeIf { it.first === base }?.second ?: base.newBuilder().followRedirects(false).followSslRedirects(false).readTimeout(8, TimeUnit.SECONDS).callTimeout(10, TimeUnit.SECONDS).build().also { cameraClient = base to it }
     }
 }

@@ -35,7 +35,15 @@ class DiscoveryController(
         mutableState.value = DiscoveryState(scanning = true, message = if(expanded) R.string.discovery_scan else R.string.discovery_search)
         job = scope.launch {
             try {
-                if (expanded) scanSubnet(run) else scanAdvertisements(run)
+                if (expanded) scanSubnet(run) else {
+                    scanAdvertisements(run)
+                    // HA in Docker bridge networking or on a multicast-filtering Wi-Fi never advertises; fall back to the LAN.
+                    if (run == generation) { lease?.close(); lease = null }
+                    if (run == generation && state.value.servers.isEmpty() && backend.localSubnet()?.let(::subnetTargets).orEmpty().isNotEmpty()) {
+                        mutableState.update { it.copy(message = R.string.discovery_scan) }
+                        scanSubnet(run)
+                    }
+                }
                 if(run == generation) mutableState.update { if (!it.scanning) it else it.copy(scanning = false, message = if(it.servers.isEmpty()) R.string.discovery_empty else R.string.discovery_found) }
             } catch(e: CancellationException) { throw e }
             catch(_: Exception) { if(run == generation) mutableState.update { it.copy(scanning = false, message = R.string.discovery_error) } }

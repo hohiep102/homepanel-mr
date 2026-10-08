@@ -93,8 +93,8 @@ fun buildServiceCall(entity: HaEntity, control: Control, catalog: Catalog): Serv
         }
         is Control.Brightness -> {
             require(d == "light" && a.strings("supported_color_modes").any { it !in setOf("onoff", "unknown") }) { "Brightness unsupported." }
-            require(control.percent in 1..100) { "Brightness must be within 1-100%." }
-            "turn_on" to JSONObject().put("brightness_pct", control.percent)
+            require(control.percent in 0..100) { "Brightness must be within 0-100%." }
+            if (control.percent == 0) "turn_off" to JSONObject() else "turn_on" to JSONObject().put("brightness_pct", control.percent)
         }
         is Control.Temperature -> {
             require(d == "climate" && entity.supports(1)) { "Single target temperature unsupported." }

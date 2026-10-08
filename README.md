@@ -30,7 +30,7 @@ MR runs while HomePanel is open in its immersive activity. It is not a persisten
 
 Both editions use Meta Spatial SDK for MR. Debug builds have separate package IDs, and all variants have distinct browser return URIs. Editions keep separate data; moving from the old beta or another edition requires signing in and placing controls again. See [Distributions](docs/DISTRIBUTIONS.md).
 
-The source version is **1.0.1**. The initial Store submission is under review as of October 4, 2026. A source build or APK does not establish Store availability. The latest 1.0.1 split passed local automated checks; a fresh MR acceptance run on the signed editions is still pending.
+The source version is **1.0.2**. Meta requested changes to the initial 1.0.0 Store submission on October 7, 2026 (VRC.Quest.Functional.1: the hand-help dialog crashed inside the MR panel); 1.0.2 draws that help inside the panel instead. A source build or APK does not establish Store availability. A fresh MR acceptance run on the signed editions is still pending.
 
 ## Build Community
 

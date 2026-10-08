@@ -43,7 +43,7 @@ class ContextualUiTest {
         compose.onNodeWithText("Rooms",substring=false).performClick()
         compose.onAllNodesWithText("Lights on: 0").assertCountEquals(3)
         compose.onNodeWithText("Bedroom",substring=false).performTouchInput { click() }
-        compose.onNodeWithText("Bedroom ▾ · Devices: 1").assertExists()
+        compose.onNodeWithText("Bedroom · Devices: 1 ▾").assertExists()
         compose.onAllNodesWithText("Bedroom AC",substring=false).assertCountEquals(2)
         compose.onNodeWithText("Floor lamp",substring=false).assertDoesNotExist()
     }

@@ -56,4 +56,22 @@ class DeviceVisibilityTest {
         assertEquals(3,deviceCatalogForDisplay(source,true).devices.size)
         assertEquals(listOf(123),deviceCatalogForDisplay(source).warnings)
     }
+
+    private fun named(id: String, name: String) = HaEntity(id, "off", JSONObject().put("friendly_name", name))
+
+    @Test fun settingSwitchesWithoutRegistryFlagsAreHidden() {
+        for ((id, name) in listOf("switch.cong_away_mode" to "Cổng Away mode", "input_boolean.vang_nha" to "Chế độ vắng nhà", "switch.cam_privacy" to "Camera privacy",
+            "switch.cam_motion_detection" to "Camera phát hiện chuyển động", "switch.plug_led" to "Ổ cắm đèn báo", "switch.cam_record" to "Ghi hình thẻ nhớ"))
+            assertFalse(name, named(id, name).isEveryday())
+        for ((id, name) in listOf("switch.den_led_phong_ngu" to "Đèn LED phòng ngủ", "switch.o_cam_tivi" to "Ổ cắm tivi", "light.recorder_room" to "Đèn chế độ ngủ", "switch.binh_nong_lanh" to "Bình nóng lạnh"))
+            assertTrue(name, named(id, name).isEveryday())
+    }
+
+    @Test fun wallSwitchesNamedAsLightsCountAsLights() {
+        assertTrue(named("switch.cong_tac_phong_khach_1", "Đèn trần phòng khách").isLight())
+        assertTrue(named("switch.living_lamp", "Living lamp").isLight())
+        assertTrue(named("light.bed", "Bed").isLight())
+        assertFalse(named("switch.o_cam_tivi", "Ổ cắm tivi").isLight())
+        assertFalse(named("switch.plug_status", "Ổ cắm đèn báo").isLight())
+    }
 }

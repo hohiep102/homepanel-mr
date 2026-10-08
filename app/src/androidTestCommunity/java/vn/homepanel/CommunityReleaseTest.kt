@@ -30,7 +30,7 @@ class CommunityReleaseTest {
         app.store.disconnect()
         ActivityScenario.launch(MainActivity::class.java).use {
             compose.onNodeWithText("We could not verify your copy.").assertDoesNotExist()
-            compose.onNodeWithText("Explore demo", substring = false).performClick()
+            compose.onNodeWithText("Try demo", substring = false).performClick()
             compose.onNodeWithText("DEMO", substring = false).assertIsDisplayed()
             compose.onNodeWithText("Devices", substring = false).performClick()
             compose.onNodeWithText("Place in room ↗").assertExists()

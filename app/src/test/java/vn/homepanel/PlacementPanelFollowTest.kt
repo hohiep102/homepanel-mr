@@ -61,8 +61,10 @@ class PlacementPanelFollowTest {
     @Test fun smallHeadMovementsDoNotMakeButtonsChaseTheUser() {
         val follow = PlacementPanelFollow()
         val initial = follow.reset(start,0)
-        for (yaw in listOf(3f,-4f,5f,-2f)) {
+        // Turning the head to aim at an appliance nearby must not drag the editor along.
+        for (yaw in listOf(3f,-4f,5f,-2f,20f,-25f,30f)) {
             assertEquals(initial,follow.update(Pose(start.t,Quaternion(0f,yaw,0f)),false,100))
+            assertEquals(initial,follow.update(Pose(start.t+Vector3(.2f,0f,.1f),Quaternion(0f,yaw,0f)),false,116))
         }
     }
 
