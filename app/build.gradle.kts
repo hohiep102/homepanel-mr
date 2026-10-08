@@ -14,8 +14,8 @@ android {
         applicationId = "vn.homepanel.mr"
         minSdk = 34
         targetSdk = 34
-        versionCode = 15
-        versionName = "1.0.2"
+        versionCode = 16
+        versionName = "1.0.3"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk { abiFilters += "arm64-v8a" }
     }
