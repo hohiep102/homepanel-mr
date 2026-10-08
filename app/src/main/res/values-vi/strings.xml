@@ -119,7 +119,7 @@
   <string name="frame_width">Chiều rộng khung</string>
   <string name="frame_height">Chiều cao khung</string>
   <string name="frame_aim">Hướng khung vào vật thể. Chỉnh khoảng cách và kích thước, rồi chụm ngón hoặc cố định sau 3 giây.</string>
-  <string name="frame_no_surface">Chưa có bề mặt được quét phía trước. Tắt bám bề mặt để đặt ở khoảng cách thủ công.</string>
+  <string name="frame_no_surface">Chưa có bề mặt được quét phía trước nên khung sẽ lơ lửng ở khoảng cách thủ công.</string>
   <string name="frame_manual_note">Bạn đặt khung thủ công; app không tự nhận diện hay theo dõi vật thể di chuyển.</string>
   <string name="saving_placement">Đang lưu vị trí…</string>
   <string name="not_connected">Chưa kết nối</string>
@@ -148,7 +148,7 @@
   <string name="registry_area_warning">Không đọc được danh mục phòng.</string>
   <string name="discovery_search">Đang tìm Home Assistant trong mạng…</string>
   <string name="discovery_scan">Đang tìm HA trên các IP gần thiết bị…</string>
-  <string name="discovery_empty">Chưa tìm thấy HA. Kiểm tra cùng mạng Wi-Fi, thử quét IP hoặc nhập địa chỉ ngắn.</string>
+  <string name="discovery_empty">Không tìm thấy HA trong mạng này. Kiểm tra kính cùng mạng Wi-Fi hoặc nhập địa chỉ.</string>
   <string name="discovery_found">Đã tìm thấy máy chủ. Chọn HA của bạn để kết nối.</string>
   <string name="discovery_error">Không tìm được máy chủ trên mạng này. Bạn vẫn có thể nhập địa chỉ.</string>
   <string name="discovery_no_subnet">Chưa có mạng Wi-Fi/Ethernet IPv4 riêng để quét. Thử tìm tự động hoặc nhập địa chỉ.</string>
@@ -157,7 +157,7 @@
   <string name="source_hostname">Tên máy trong LAN</string>
   <string name="source_ip">Quét IP · cổng 8123</string>
   <string name="stale_data">%1$s · dữ liệu đang hiển thị là lần cập nhật cuối.</string>
-  <string name="device_count">%1$s ▾ · %2$d thiết bị</string>
+  <string name="device_count">%1$s · %2$d thiết bị</string>
   <string name="function_count">%1$d chức năng</string>
   <string name="bound_suffix"> · Đã gán</string>
   <string name="room_temperature">Trong phòng  %1$s %2$s</string>
@@ -199,4 +199,12 @@
   <string name="support">Hỗ trợ</string>
   <string name="third_party_notices">Giấy phép bên thứ ba</string>
   <string name="about_compatibility">Ứng dụng thực tế hỗn hợp độc lập dành cho Home Assistant. Cần máy chủ Home Assistant và thiết bị tương thích để điều khiển thiết bị thật. Chế độ demo sử dụng thiết bị mẫu. HomePanel MR không liên kết với Open Home Foundation hoặc Meta.</string>
+  <string name="back_home">← Về trang chính</string>
+  <string name="demo_banner">Bạn đang xem nhà demo. Thao tác ở đây không điều khiển thiết bị thật.</string>
+  <string name="reconnect">Kết nối lại</string>
+  <string name="dashboard">Bảng điều khiển</string>
+  <string name="frame_not_ready">Chưa chốt được khung vì bản đồ phòng chưa sẵn sàng. Hãy nhắm lại hoặc tải lại phòng.</string>
+  <string name="placement_missing">Không tìm thấy trong lần quét phòng này</string>
+  <string name="place_again">Gán lại</string>
+  <string name="placement_adopted">Đã giữ %1$d vị trí từ địa chỉ máy chủ trước.</string>
 </resources>

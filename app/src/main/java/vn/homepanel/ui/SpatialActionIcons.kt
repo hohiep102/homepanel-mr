@@ -24,7 +24,7 @@ import vn.homepanel.AppStore
 import vn.homepanel.R
 import vn.homepanel.ha.*
 
-enum class ActionGlyph { POWER, MINUS, PLUS, MORE, LIST, UP, DOWN, STOP }
+enum class ActionGlyph { POWER, MINUS, PLUS, MORE, LIST, UP, DOWN, STOP, DASHBOARD }
 
 /** Transparent root: only a short name/status pill and individual action circles are drawn. */
 @Composable fun SpatialActionIcons(store: AppStore, bindingId: String, onDetails: () -> Unit) {
@@ -75,6 +75,7 @@ enum class ActionGlyph { POWER, MINUS, PLUS, MORE, LIST, UP, DOWN, STOP }
                 ActionGlyph.PLUS -> { segment(.2f,.5f,.8f,.5f);segment(.5f,.2f,.5f,.8f) }
                 ActionGlyph.MORE -> listOf(.2f,.5f,.8f).forEach { drawCircle(color,w*.065f,Offset(w*it,h*.5f)) }
                 ActionGlyph.LIST -> listOf(.25f,.5f,.75f).forEach { segment(.2f,it,.8f,it) }
+                ActionGlyph.DASHBOARD -> { drawRoundRect(color,Offset(w*.12f,h*.18f),Size(w*.76f,h*.64f),androidx.compose.ui.geometry.CornerRadius(w*.1f),style=line);segment(.12f,.4f,.88f,.4f);segment(.45f,.4f,.45f,.82f) }
                 ActionGlyph.UP -> { segment(.2f,.62f,.5f,.32f);segment(.5f,.32f,.8f,.62f) }
                 ActionGlyph.DOWN -> { segment(.2f,.38f,.5f,.68f);segment(.5f,.68f,.8f,.38f) }
                 ActionGlyph.STOP -> drawRect(color,Offset(w*.25f,h*.25f),Size(w*.5f,h*.5f),style=line)

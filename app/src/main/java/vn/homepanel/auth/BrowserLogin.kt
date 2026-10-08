@@ -41,4 +41,6 @@ class BrowserLogin(private val scope: CoroutineScope, private val auth: HaAuthCl
         }
     }
     fun cancel() { generation++;job?.cancel();job=null;mutableState.value=BrowserLoginState() }
+    /** The connection outcome replaces the sign-in message once the first connect succeeds or fails. */
+    fun clearCompleted() { if(mutableState.value.phase==LoginPhase.COMPLETE) mutableState.value=BrowserLoginState() }
 }

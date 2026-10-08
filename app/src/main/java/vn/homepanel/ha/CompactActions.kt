@@ -36,9 +36,16 @@ fun compactAdjustment(entity: HaEntity, catalog: Catalog): CompactAdjustment? {
             else CompactAdjustment(vn.homepanel.R.string.target_temperature,value,min,max,a.optDouble("target_temp_step",1.0).toFloat().takeIf { it.isFinite() && it>0 } ?: 1f,"°","climate")
         }
         entity.domain=="light" && a.strings("supported_color_modes").any { it !in setOf("onoff","unknown") } && catalog.supports("light","turn_on") ->
-            CompactAdjustment(vn.homepanel.R.string.brightness,(a.optInt("brightness",255)/255f*100).coerceIn(1f,100f),1f,100f,10f,"%","light")
+            CompactAdjustment(vn.homepanel.R.string.brightness,brightnessPercent(entity),0f,100f,10f,"%","light")
         entity.domain=="fan" && entity.supports(1) && catalog.supports("fan","set_percentage") ->
             CompactAdjustment(vn.homepanel.R.string.speed,a.optInt("percentage",0).toFloat().coerceIn(0f,100f),0f,100f,a.optDouble("percentage_step",10.0).toFloat().takeIf { it.isFinite() && it>0 } ?: 10f,"%","fan")
         else -> null
     }
+}
+
+/** HA reports brightness as null while a light is off; showing 100% there made "−" turn the light on at 99%. */
+fun brightnessPercent(entity: HaEntity): Float {
+    val a = entity.attributes
+    if (entity.state != "on" || a.isNull("brightness")) return 0f
+    return (a.optInt("brightness") / 255f * 100).coerceIn(1f, 100f)
 }

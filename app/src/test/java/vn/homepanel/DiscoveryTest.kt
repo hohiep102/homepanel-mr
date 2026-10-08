@@ -86,6 +86,22 @@ class DiscoveryTest {
         assertEquals("http://192.168.1.10:8123",c.state.value.servers.single().address)
         assertEquals(253,c.state.value.checked);assertFalse(c.state.value.scanning);c.close()
     }
+    @Test fun silentAdvertisementSearchFallsBackToLanScan() = runTest {
+        val checked=mutableListOf<String>()
+        val c=DiscoveryController(Backend(LocalSubnet("192.168.1.50",24)),this,identify={ url ->
+            checked.add(url);if(url=="http://192.168.1.10:8123") "2026.9" else null
+        })
+        c.start();advanceUntilIdle()
+        assertTrue("http://homeassistant.local:8123" in checked);assertEquals(254,checked.size)
+        assertEquals("http://192.168.1.10:8123",c.state.value.servers.single().address)
+        assertEquals(R.string.discovery_found,c.state.value.message);assertFalse(c.state.value.scanning);c.close()
+    }
+    @Test fun advertisedServerSkipsLanScan() = runTest {
+        val b=Backend(LocalSubnet("192.168.1.50",24));var probes=0
+        val c=DiscoveryController(b,this,identify={probes++;"2026.9"})
+        c.start();runCurrent();b.found(advertisement());advanceUntilIdle()
+        assertEquals(1,probes);assertEquals(0,c.state.value.total);assertEquals(1,c.state.value.servers.size);c.close()
+    }
     @Test fun lanDeadlineCancelsPendingSocketsAndFinishesScan() = runTest {
         var active=0
         val c=DiscoveryController(Backend(LocalSubnet("192.168.1.50",24)),this,identify={

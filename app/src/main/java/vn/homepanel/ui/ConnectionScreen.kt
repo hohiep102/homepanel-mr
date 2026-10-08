@@ -45,11 +45,12 @@ import vn.homepanel.ha.ServerAddress
     val normalized = remember(url) { runCatching { normalizeServerInput(url) }.getOrNull() }
     DisposableEffect(finder,lifecycle) {
         val observer = LifecycleEventObserver { _, event ->
-            if(event == Lifecycle.Event.ON_START) finder.start()
+            if(event == Lifecycle.Event.ON_START && showDiscovery && store.state.value.serverUrl.isEmpty()) finder.start()
             if(event == Lifecycle.Event.ON_STOP) finder.stop()
         }
         lifecycle.addObserver(observer)
-        if(lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) finder.start()
+        // Only search when setup is really needed: a saved server is being restored, possibly from another network.
+        if(lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED) && showDiscovery && store.state.value.serverUrl.isEmpty()) finder.start()
         onDispose { lifecycle.removeObserver(observer); finder.close() }
     }
     Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).testTag("connection-scroll"), verticalArrangement = Arrangement.spacedBy(16.dp)) {

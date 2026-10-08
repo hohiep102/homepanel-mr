@@ -25,17 +25,8 @@ import vn.homepanel.ha.*
         if (entity != null) {
             val choices = device.entities.filter { it.isEveryday() || it.id == entity.id }
             if (choices.size > 1) {
-                var choosing by remember(device.key) { mutableStateOf(false) }
-                Box {
-                    OutlinedButton(onClick = { choosing = true }, modifier = Modifier.fillMaxWidth().testTag("quick-function-picker")) {
-                        Text(entity.name + " ▾", maxLines = 2, overflow = TextOverflow.Ellipsis)
-                    }
-                    DropdownMenu(choosing, { choosing = false }) {
-                        choices.forEach { option ->
-                            DropdownMenuItem(text = { Text(option.name) }, onClick = { store.select(device.key,option.id); choosing = false }, modifier = Modifier.testTag("quick-function:${option.id}"))
-                        }
-                    }
-                }
+                InlinePicker(entity.name, choices, { it.name }, { store.select(device.key,it.id) }, Modifier.fillMaxWidth(), selected = entity,
+                    buttonTag = "quick-function-picker", optionTag = { "quick-function:${it.id}" })
             }
             Text(if (!entity.available) stringResource(R.string.unavailable) else displayState(entity), fontSize = 21.sp, color = if (entity.available) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary)
             if (!state.connected) Text(stringResource(R.string.rooms_stale), color = MaterialTheme.colorScheme.secondary)

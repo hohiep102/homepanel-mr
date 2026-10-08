@@ -16,7 +16,11 @@ class HomePanelApp : Application() {
     override fun onCreate() { super.onCreate(); AppLanguage.load(this); entitlement.check() }
 }
 class AppStore(private val app: Application) {
+    private companion object { const val RENEW_RETRY_MS = 60_000L }
     private fun text(id: Int, vararg args: Any) = AppLanguage.text(app,id,*args)
+    /** The status is stored translated; remembering its resource lets a language change re-render the real state. */
+    private var statusId = R.string.not_connected
+    private fun status(id: Int): String { statusId = id; return text(id) }
     fun changeLanguage(tag: String) {
         AppLanguage.select(app,tag)
         if (state.value.demo) {
@@ -26,9 +30,9 @@ class AppStore(private val app: Application) {
                 old.copy(catalog = old.catalog.copy(entities = entities, areas = names.areas, devices = old.catalog.devices.map { device ->
                     val translated = names.devices.find { it.key == device.key } ?: device
                     device.copy(name = translated.name, area = translated.area, entities = device.entities.map { entities.getValue(it.id) })
-                }), message = null, status = text(R.string.demo_status))
+                }), message = null, status = status(R.string.demo_status))
             }
-        } else mutableState.update { it.copy(message = null, status = text(if (it.connected) R.string.connected else R.string.not_connected)) }
+        } else mutableState.update { it.copy(message = null, status = status(statusId)) }
     }
     private val credentials = CredentialStore(app)
     private val bindingStore = BindingStore(app)
@@ -48,6 +52,19 @@ class AppStore(private val app: Application) {
         runCatching { credentials.loadAuth() }.onSuccess { it?.let { (url, auth) -> connectCredentials(ServerAddress.parse(url),auth,true,restoring=true) } }.onFailure { notify(text(R.string.auth_storage_error)) }
     }
     fun notify(message: String?) { mutableState.update { it.copy(message = message) } }
+    private val resolvedFlow = MutableStateFlow<Set<String>?>(null)
+    /** Placement ids the room currently resolves; null while no room is open. */
+    val resolvedPlacements = resolvedFlow.asStateFlow()
+    fun reportResolvedPlacements(ids: Set<String>?) { resolvedFlow.value = ids }
+    /** Bindings are keyed by the server URL; reconnecting by IP, hostname or a remote URL must not lose them. */
+    private fun adoptBindings(serverKey: String, catalog: Catalog) {
+        if (!bindingsReadable || catalog.entities.isEmpty() || allBindings.any { it.serverKey == serverKey }) return
+        val previous = allBindings.filter { it.serverKey != Demo.KEY }.groupBy { it.serverKey }
+            .filterValues { list -> list.count { it.entityId in catalog.entities } * 5 >= list.size * 4 }
+            .maxByOrNull { it.value.size } ?: return
+        val moved = allBindings.map { if (it.serverKey == previous.key) it.copy(serverKey = serverKey) else it }
+        runCatching { bindingStore.save(moved) }.onSuccess { allBindings = moved; refreshBindings(); notify(text(R.string.placement_adopted, previous.value.size)) }
+    }
     fun select(device: String, entity: String? = null) {
         val found = state.value.catalog.devices.find { it.key == device } ?: return
         val selected = entity?.takeIf { id -> found.entities.any { it.id == id } } ?: primaryEntity(found)?.id
@@ -64,11 +81,11 @@ class AppStore(private val app: Application) {
     }
     fun showDemo() {
         stop(); val catalog = Demo.catalog(AppLanguage.language.value == "vi")
-        mutableState.value = AppState(catalog, text(R.string.demo_status), true, true, Demo.KEY, selectedDevice = "device:lamp", selectedEntity = "light.living", bindings = allBindings.filter { it.serverKey == Demo.KEY })
+        mutableState.value = AppState(catalog, status(R.string.demo_status), true, true, Demo.KEY, selectedDevice = "device:lamp", selectedEntity = "light.living", bindings = allBindings.filter { it.serverKey == Demo.KEY })
     }
     fun disconnect(forget: Boolean = false) {
         val forgotten=if(forget) activeAuth ?: runCatching { credentials.loadAuth()?.let { ServerAddress.parse(it.first) to it.second } }.getOrNull() else null
-        stop(); if (forget) credentials.clear(); mutableState.value = AppState(status = text(R.string.not_connected))
+        stop(); if (forget) credentials.clear(); mutableState.value = AppState(status = status(R.string.not_connected))
         forgotten?.takeIf { it.second.renewable }?.let { (address,auth) -> scope.launch { runCatching { authClient.revoke(address,auth) } } }
     }
     private fun stop(cancelLogin: Boolean = true) { if(cancelLogin) login.cancel(); generation++; connection?.cancel(); connection = null; session?.close(); session = null; activeAuth=null }
@@ -79,7 +96,7 @@ class AppStore(private val app: Application) {
     }
     private fun connectCredentials(address: ServerAddress, initial: HaCredentials, remember: Boolean, restoring: Boolean=false, cancelLogin: Boolean=true) {
         stop(cancelLogin); val run = generation
-        mutableState.value = AppState(status = text(R.string.connecting), serverKey = address.key, serverUrl = address.base, bindings = allBindings.filter { it.serverKey == address.key })
+        mutableState.value = AppState(status = status(R.string.connecting), serverKey = address.key, serverUrl = address.base, bindings = allBindings.filter { it.serverKey == address.key })
         connection = scope.launch {
             var retry = 0; var stored = restoring; var auth=initial; var lastSaved:HaCredentials?=if(restoring) initial else null;var refreshedAfterRejection=false
             while (isActive && run == generation) {
@@ -93,27 +110,38 @@ class AppStore(private val app: Application) {
                     if (!stored || lastSaved!=auth) { if (remember) credentials.saveAuth(address.base, auth) else credentials.clear(); stored = true;lastSaved=auth }
                     retry = 0
                     refreshedAfterRejection=false
-                    mutableState.update { it.copy(connected = true, status = text(R.string.connected), message = null, catalog = connectedSession.catalog.value) }
+                    mutableState.update { it.copy(connected = true, status = status(R.string.connected), message = null, catalog = connectedSession.catalog.value) }
+                    adoptBindings(address.key, connectedSession.catalog.value)
                     collector = launch { connectedSession.catalog.collect { data -> mutableState.update { it.copy(catalog = data) } } }
-                    if(auth.renewable) {
-                        withTimeoutOrNull((auth.refreshAt-System.currentTimeMillis()).coerceAtLeast(1)) { connectedSession.ended.await() }
-                        mutableState.update { it.copy(connected=false,status=text(R.string.auth_renewing),busy=emptySet()) }
-                    } else connectedSession.ended.await()
+                    login.clearCompleted()
+                    // HA keeps an authenticated websocket open after its access token expires, so renew in the background.
+                    while (auth.renewable && withTimeoutOrNull((auth.refreshAt-System.currentTimeMillis()).coerceAtLeast(1)) { connectedSession.ended.await() } == null) {
+                        auth = try { authClient.refresh(address,auth) }
+                        catch (e: AuthFailure) { if (e.reason==AuthError.EXPIRED) throw e; auth.copy(refreshAt=System.currentTimeMillis()+RENEW_RETRY_MS) }
+                        catch (e: CancellationException) { throw e }
+                        catch (_: Exception) { auth.copy(refreshAt=System.currentTimeMillis()+RENEW_RETRY_MS) }
+                        activeAuth=address to auth
+                        if (remember && auth.accessToken != lastSaved?.accessToken) runCatching { credentials.saveAuth(address.base, auth); lastSaved=auth }
+                    }
+                    connectedSession.ended.await()
+                    if (run == generation) mutableState.update { it.copy(connected = false, status = status(R.string.disconnected_retry), busy = emptySet()) }
                 } catch (e: TimeoutCancellationException) {
-                    if (run == generation) mutableState.update { it.copy(connected = false, status = text(R.string.ha_retrying), busy = emptySet(), message = text(R.string.check_network)) }
+                    if (run == generation) mutableState.update { it.copy(connected = false, status = status(R.string.ha_retrying), busy = emptySet(), message = text(R.string.check_network)) }
                 } catch (e: CancellationException) { throw e }
                 catch (e: AuthFailure) {
                     if(run!=generation) break
+                    login.clearCompleted()
                     if(e.reason==AuthError.EXPIRED) { if(remember && stored) credentials.clear();activeAuth=null }
-                    mutableState.update { it.copy(connected=false,busy=emptySet(),status=text(if(e.reason==AuthError.EXPIRED) R.string.auth_sign_in_again else R.string.auth_retrying),message=text(if(e.reason==AuthError.EXPIRED) R.string.auth_expired else R.string.auth_network_error)) }
+                    mutableState.update { it.copy(connected=false,busy=emptySet(),status=status(if(e.reason==AuthError.EXPIRED) R.string.auth_sign_in_again else R.string.auth_retrying),message=text(if(e.reason==AuthError.EXPIRED) R.string.auth_expired else R.string.auth_network_error)) }
                     if(e.reason==AuthError.EXPIRED) break
                 }
                 catch (e: Exception) {
                     if (run != generation) break
-                    mutableState.update { it.copy(connected = false, status = text(R.string.disconnected_retry), busy = emptySet(), message = if (e is HaFailure) text(e.textId) else text(R.string.connection_failed)) }
+                    login.clearCompleted()
+                    mutableState.update { it.copy(connected = false, status = status(R.string.disconnected_retry), busy = emptySet(), message = if (e is HaFailure) text(e.textId) else text(R.string.connection_failed)) }
                     if (e is HaFailure && e.authenticationRejected) {
                         if(auth.renewable && !refreshedAfterRejection) { auth=auth.copy(refreshAt=0);refreshedAfterRejection=true }
-                        else { mutableState.update { it.copy(status = text(R.string.auth_sign_in_again)) };if(remember && stored) credentials.clear();activeAuth=null;break }
+                        else { mutableState.update { it.copy(status = status(R.string.auth_sign_in_again)) };if(remember && stored) credentials.clear();activeAuth=null;break }
                     }
                 } finally { collector?.cancel(); live?.close(); if (session === live) session = null }
                 delay((1000L shl retry.coerceAtMost(5)).coerceAtMost(30_000L)); retry++

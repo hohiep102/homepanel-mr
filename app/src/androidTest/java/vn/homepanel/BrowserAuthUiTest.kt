@@ -31,7 +31,6 @@ class BrowserAuthUiTest {
         try {
             intending(hasAction(Intent.ACTION_VIEW)).respondWith(ActivityResult(Activity.RESULT_OK,null))
             compose.runOnUiThread { store.disconnect(true) }
-            compose.onNodeWithText(compose.activity.getString(R.string.connection)).performClick()
             compose.onNodeWithText(compose.activity.getString(R.string.manual_address)).performScrollTo().performClick()
             compose.onNodeWithTag("server-address").performScrollTo().performTextInput(fixture.localUrl)
             compose.onNodeWithTag("server-token").assertDoesNotExist()

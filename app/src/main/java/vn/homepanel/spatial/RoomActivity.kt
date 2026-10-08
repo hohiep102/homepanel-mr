@@ -44,7 +44,7 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.ConcurrentHashMap
 
 private enum class Mode { HOME, EXPLORE, AIM, CONFIRM, CONTROL }
-private data class RoomUi(val mode: Mode = Mode.HOME, val status: String = "", val target: String = "", val targetBinding: String? = null, val distance: Float = 2f, val surface: Boolean = false, val resolved: Int = 0, val total: Int = 0, val canSave: Boolean = false, val handsTracked: Boolean = false, val countdown: Int = 0, val width: Float = .5f, val height: Float = .5f, val aimHint: Int = R.string.frame_aim, val saving: Boolean = false, val loading: Boolean = false, val settingUp: Boolean = false)
+private data class RoomUi(val mode: Mode = Mode.HOME, val status: String = "", val target: String = "", val targetBinding: String? = null, val distance: Float = 2f, val surface: Boolean = true, val resolved: Int = 0, val total: Int = 0, val canSave: Boolean = false, val handsTracked: Boolean = false, val countdown: Int = 0, val width: Float = .5f, val height: Float = .5f, val aimHint: Int = R.string.frame_aim, val saving: Boolean = false, val loading: Boolean = false, val settingUp: Boolean = false)
 private data class Placement(val room: String, val anchor: String, val local: Pose, val world: Pose, val device: String, val entity: String, val label: String, val server: String, val width: Float, val height: Float)
 
 class RoomActivity : AppSystemActivity() {
@@ -95,7 +95,7 @@ class RoomActivity : AppSystemActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        enqueue { if (intent.getBooleanExtra(EXTRA_PLACE, false)) beginAim() else mode(entryMode()) }
+        enqueue { if (takePlaceRequest()) beginAim() else mode(entryMode()) }
     }
     override fun onSceneReady() {
         super.onSceneReady()
@@ -106,6 +106,8 @@ class RoomActivity : AppSystemActivity() {
         actionsFocus.reset()
         actionsPose = null
         lastResolution = null
+        // Entities of a previous scene are gone; markers are recreated from the bindings.
+        markers.clear()
         android.util.Log.i("HomePanelSpatial", "Scene ready; placement requested=${intent.getBooleanExtra(EXTRA_PLACE, false)}")
         scene.setReferenceSpace(ReferenceSpace.LOCAL_FLOOR)
         scene.enablePassthrough(true)
@@ -175,11 +177,13 @@ class RoomActivity : AppSystemActivity() {
                 room.targetBinding?.let { id -> SpatialActionIcons(store,id,onDetails={ enqueue { openBinding(id) } }) }
             }
         },
-        panel(R.id.room_navigation, .08f, .08f) {
+        panel(R.id.room_navigation, .08f, .14f) {
             val room by ui.collectAsState()
             HomeTheme {
                 Column(Modifier.fillMaxSize(),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.Center) {
                     SpatialIconButton(ActionGlyph.LIST,stringResource(R.string.list)) { enqueue { mode(Mode.HOME) } }
+                    Spacer(Modifier.height(10.dp))
+                    SpatialIconButton(ActionGlyph.DASHBOARD,stringResource(R.string.dashboard)) { exitToWindow() }
                     if(room.total>room.resolved) Text("!",color=MaterialTheme.colorScheme.secondary,fontSize=14.sp)
                 }
             }
@@ -223,7 +227,8 @@ class RoomActivity : AppSystemActivity() {
         ui.update { it.copy(status=text(if(capture) R.string.room_scanning else R.string.room_loading), loading=true, settingUp=capture, canSave=false) }
         fun complete(success: Boolean, status: Int) {
             runOnUiThread {
-                if (generation == roomLoadGeneration && !isDestroyed) {
+                // A load that finishes after the timeout still corrects the status, unless a newer load is running.
+                if (!isDestroyed && (generation == roomLoadGeneration || (success && !loadingRoom))) {
                     loadingRoom=false
                     capturingRoom=false
                     ui.update { it.copy(loading=false,settingUp=false,status=text(status)) }
@@ -291,17 +296,19 @@ class RoomActivity : AppSystemActivity() {
         aimPose = headPose?.copy()
         freezeAt = 0L; mode(Mode.AIM); aimSince = SystemClock.uptimeMillis(); candidate = null; frozen = null
     }
+    /** A placement request is consumed once, so a recreated scene does not start aiming again after a save. */
+    private fun takePlaceRequest(): Boolean = intent.getBooleanExtra(EXTRA_PLACE, false).also { if (it) intent.removeExtra(EXTRA_PLACE) }
     private fun freeze() {
         if(ui.value.mode != Mode.AIM) return
-        frozen = candidate ?: return
+        frozen = candidate ?: run { ui.update { it.copy(status = text(R.string.frame_not_ready)) }; return }
         mode(Mode.CONFIRM)
         ui.update { it.copy(canSave = true) }
     }
     private fun savePlacement() {
         val p = frozen ?: return
         if (ui.value.saving) return
-        val room = mruk.getCurrentRoom()
-        if(room?.anchor?.uuid?.toString() != p.room || room.anchors.none { it.tryGetComponent<MRUKAnchor>()?.uuid?.toString() == p.anchor }) {
+        val room = mruk.rooms.find { it.anchor.uuid.toString() == p.room }
+        if(room == null || room.anchors.none { it.tryGetComponent<MRUKAnchor>()?.uuid?.toString() == p.anchor }) {
             ui.update { it.copy(canSave = false, status = text(R.string.room_changed)) }; return
         }
         if (store.state.value.serverKey != p.server) { mode(Mode.HOME); return }
@@ -322,6 +329,7 @@ class RoomActivity : AppSystemActivity() {
         }
     }
     private var focusedId: String? = null
+    private var resolvedReported: Set<String>? = null
     private fun openBinding(id: String) {
         if (openingBindingId != null) return
         val binding = store.state.value.bindings.find { it.id == id } ?: return
@@ -350,7 +358,7 @@ class RoomActivity : AppSystemActivity() {
         val head = avatar?.head?.tryGetComponent<Transform>()?.let { getAbsoluteTransform(avatar.head) }
         if(avatar == null || head == null || head == Pose()) { selectionInput.reset(); actionsFocus.reset(); hint?.setComponent(Visible(false)); freezeAt = 0L; return }
         headPose = head
-        if(!initialized) { initialized = true; if(intent.getBooleanExtra(EXTRA_PLACE, false)) beginAim() else mode(entryMode()) }
+        if(!initialized) { initialized = true; if(takePlaceRequest()) beginAim() else mode(entryMode()) }
         while(true) { val command = commands.poll() ?: break; command() }
         val hands = listOf(InputSide.LEFT to avatar.leftHand, InputSide.RIGHT to avatar.rightHand).mapNotNull { (side, hand) ->
             hand.tryGetComponent<Controller>()?.let { controller ->
@@ -374,11 +382,11 @@ class RoomActivity : AppSystemActivity() {
         if(listOf(avatar.leftHand, avatar.rightHand).any { hand -> hand.tryGetComponent<Controller>()?.let { c -> c.isActive && c.type == ControllerType.CONTROLLER && (c.isPressed(ButtonBits.ButtonMenu) || c.isPressed(ButtonBits.ButtonB)) } == true }) mode(Mode.HOME)
         val room = mruk.getCurrentRoom()
         val state = store.state.value
-        val anchors = room?.anchors?.mapNotNull { e -> e.tryGetComponent<MRUKAnchor>()?.let { it.uuid.toString() to e } }?.toMap().orEmpty()
-        val resolved = state.bindings.mapNotNull { b ->
-            if(room?.anchor?.uuid?.toString() != b.roomId) null else anchors[b.anchorId]?.let { e -> b to (getAbsoluteTransform(e) * b.localPose()) }
-        }
+        // Placements in every scanned room stay visible, e.g. a hallway lamp seen through a doorway.
+        val anchors = mruk.rooms.flatMap { r -> r.anchors.mapNotNull { e -> e.tryGetComponent<MRUKAnchor>()?.let { "${r.anchor.uuid}/${it.uuid}" to e } } }.toMap()
+        val resolved = state.bindings.mapNotNull { b -> anchors["${b.roomId}/${b.anchorId}"]?.let { e -> b to (getAbsoluteTransform(e) * b.localPose()) } }
         val valid = resolved.map { it.first.id }.toSet()
+        if (resolvedReported != valid) { resolvedReported = valid; runOnUiThread { store.reportResolvedPlacements(valid) } }
         val forward = head.q * Vector3(0f,0f,1f)
         var lookedTarget: String? = null
         if (ui.value.mode == Mode.EXPLORE) {
@@ -408,26 +416,28 @@ class RoomActivity : AppSystemActivity() {
                 // Looking at a button must not pull the frame away from the chosen appliance.
                 if (!panelBusy || aimPose == null) aimPose = head.copy()
                 val aim = aimPose ?: head
-                val anchor = room?.floors?.firstOrNull() ?: room?.anchors?.firstOrNull()
-                val anchorId = anchor?.tryGetComponent<MRUKAnchor>()?.uuid?.toString()
                 val direction = aim.q * Vector3(0f,0f,1f)
-                val hit = if(ui.value.surface && room != null) mruk.raycastRoom(room.anchor.uuid, aim.t, direction, 8f, SurfaceType.PLANE_VOLUME) else null
-                val position = if(ui.value.surface) hit?.hitPosition else aim.t + direction * ui.value.distance
-                val worldPose = Pose(position ?: (aim.t + direction * ui.value.distance), aim.q.copy())
+                // The hit is used to choose the anchor even when the frame floats at a manual distance.
+                val hit = if(room != null) mruk.raycastRoom(room.anchor.uuid, aim.t, direction, 8f, SurfaceType.PLANE_VOLUME) else null
+                val snapped = ui.value.surface && hit != null
+                val worldPose = placementPose(aim, ui.value.distance, hit?.hitPosition?.takeIf { snapped }, hit?.hitNormal?.takeIf { snapped }, ui.value.height)
+                val roomAnchors = room?.anchors?.mapNotNull { e -> e.tryGetComponent<MRUKAnchor>()?.let { Triple(it.uuid.toString(), e, getAbsoluteTransform(e).t) } }.orEmpty()
+                val anchorId = placementAnchor(hit?.sceneAnchorUuid?.toString(), worldPose.t, roomAnchors.map { it.first to it.third })
+                val anchor = roomAnchors.find { it.first == anchorId }?.second
                 val device = state.catalog.devices.find { it.key == aimDevice }
-                candidate = if(anchor != null && anchorId != null && position != null && device != null && aimEntity != null) {
+                candidate = if(room != null && anchor != null && anchorId != null && device != null && aimEntity != null) {
                     val local = getAbsoluteTransform(anchor).inverse() * worldPose
-                    Placement(room!!.anchor.uuid.toString(), anchorId, local, worldPose, device.key, aimEntity!!, placementLabel(device,aimEntity!!), state.serverKey, ui.value.width, ui.value.height)
+                    Placement(room.anchor.uuid.toString(), anchorId, local, worldPose, device.key, aimEntity!!, placementLabel(device,aimEntity!!), state.serverKey, ui.value.width, ui.value.height)
                 } else null
                 preview?.show(worldPose, ui.value.width, ui.value.height, ready = candidate != null)
-                val help = if (ui.value.surface && hit == null) R.string.frame_no_surface else R.string.frame_aim
+                val help = if (ui.value.surface && !snapped) R.string.frame_no_surface else R.string.frame_aim
                 if(ui.value.canSave != (candidate != null) || ui.value.aimHint != help) ui.update { it.copy(canSave = candidate != null, aimHint = help) }
                 if((selected && now - aimSince > 700) || (freezeAt != 0L && now >= freezeAt)) { freezeAt = 0L; freeze() }
             }
             Mode.CONFIRM -> {
                 frozen?.let { p ->
-                    val anchor = anchors[p.anchor]
-                    val localized = room?.anchor?.uuid?.toString() == p.room && anchor != null
+                    val anchor = anchors["${p.room}/${p.anchor}"]
+                    val localized = anchor != null
                     if(localized) preview?.show(getAbsoluteTransform(anchor!!) * p.local,p.width,p.height) else preview?.hide()
                     if(ui.value.canSave != localized) ui.update { it.copy(canSave = localized) }
                 }
@@ -474,6 +484,6 @@ class RoomActivity : AppSystemActivity() {
         startActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK).putExtra("extra_launch_in_home_pending_intent",pending)); finish()
     }
     override fun onPause() { enqueue { selectionInput.reset(); actionsFocus.reset(); panelPointers.clear(); freezeAt = 0L }; super.onPause() }
-    override fun onSpatialShutdown() { roomLoadGeneration++; roomHandler.removeCallbacksAndMessages(null); loadingRoom=false; capturingRoom=false; sceneReady = false; commands.clear(); panelPointers.clear(); pendingPanelListeners.clear(); selectionInput.reset(); super.onSpatialShutdown() }
+    override fun onSpatialShutdown() { resolvedReported = null; store.reportResolvedPlacements(null); roomLoadGeneration++; roomHandler.removeCallbacksAndMessages(null); loadingRoom=false; capturingRoom=false; sceneReady = false; commands.clear(); panelPointers.clear(); pendingPanelListeners.clear(); selectionInput.reset(); super.onSpatialShutdown() }
     companion object { const val EXTRA_PLACE = "vn.homepanel.PLACE_DEVICE"; private const val PERMISSION = "com.oculus.permission.USE_SCENE" }
 }

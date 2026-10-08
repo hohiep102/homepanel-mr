@@ -119,7 +119,7 @@
   <string name="frame_width">Frame width</string>
   <string name="frame_height">Frame height</string>
   <string name="frame_aim">Aim this frame at the object. Adjust distance and size, then pinch or freeze after 3 seconds.</string>
-  <string name="frame_no_surface">No scanned surface ahead. Turn off snapping to place at a manual distance.</string>
+  <string name="frame_no_surface">No scanned surface ahead, so the frame floats at the manual distance.</string>
   <string name="frame_manual_note">You place the frame manually; it does not detect or track moving objects.</string>
   <string name="saving_placement">Saving placement…</string>
   <string name="not_connected">Not connected</string>
@@ -148,7 +148,7 @@
   <string name="registry_area_warning">Room registry unavailable.</string>
   <string name="discovery_search">Searching for Home Assistant on your network…</string>
   <string name="discovery_scan">Searching nearby IP addresses…</string>
-  <string name="discovery_empty">No HA found. Check Wi-Fi, try an IP scan or enter an address.</string>
+  <string name="discovery_empty">No HA found on this network. Check that the headset is on the same Wi-Fi, or enter an address.</string>
   <string name="discovery_found">Servers found. Choose your Home Assistant to connect.</string>
   <string name="discovery_error">Cannot discover servers on this network. You can enter an address.</string>
   <string name="discovery_no_subnet">No private IPv4 Wi-Fi/Ethernet network to scan. Try automatic discovery or enter an address.</string>
@@ -157,7 +157,7 @@
   <string name="source_hostname">LAN hostname</string>
   <string name="source_ip">IP scan · port 8123</string>
   <string name="stale_data">%1$s · showing the last update.</string>
-  <string name="device_count">%1$s ▾ · Devices: %2$d</string>
+  <string name="device_count">%1$s · Devices: %2$d</string>
   <string name="function_count">Functions: %1$d</string>
   <string name="bound_suffix"> · Placed</string>
   <string name="room_temperature">Room  %1$s %2$s</string>
@@ -199,4 +199,12 @@
   <string name="support">Support</string>
   <string name="third_party_notices">Third-party licenses</string>
   <string name="about_compatibility">An independent mixed reality client for Home Assistant. A working Home Assistant server and compatible devices are required for real device control. Demo mode uses sample devices. HomePanel MR is not affiliated with the Open Home Foundation or Meta.</string>
+  <string name="back_home">← Back to home</string>
+  <string name="demo_banner">You are exploring a demo home. Nothing here controls real devices.</string>
+  <string name="reconnect">Reconnect</string>
+  <string name="dashboard">Dashboard</string>
+  <string name="frame_not_ready">The frame could not be frozen because the room map is not ready. Aim again or reload the room.</string>
+  <string name="placement_missing">Not found in this room scan</string>
+  <string name="place_again">Place again</string>
+  <string name="placement_adopted">Kept %1$d placements from your previous server address.</string>
 </resources>

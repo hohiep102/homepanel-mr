@@ -31,6 +31,14 @@ class GazeTargetingTest {
         assertEquals("exact",chooseFrameTarget(head,listOf(current,exact),previous="nearby"))
     }
 
+    @Test fun nestedSmallerFrameStaysSelectableInsideFocusedLargeFrame() {
+        val tv = TargetFrame("tv", Pose(Vector3(0f, 1.6f, 2f)), 1.4f, .8f)
+        val soundbar = TargetFrame("soundbar", Pose(Vector3(0f, 1.6f, 1.98f)), .6f, .12f)
+        assertEquals("soundbar", chooseFrameTarget(head, listOf(tv, soundbar), previous = "tv"))
+        val lookingAtTvCorner = Pose(head.t, Quaternion.lookRotation(Vector3(.5f, .3f, 2f)))
+        assertEquals("tv", chooseFrameTarget(lookingAtTvCorner, listOf(tv, soundbar), previous = "soundbar"))
+    }
+
     @Test fun smallTargetsAllowHeadAimToleranceButRejectSideTargets() {
         assertEquals("small",chooseFrameTarget(head,listOf(frame("small",x=.2f,width=.1f))))
         assertNull(chooseFrameTarget(head,listOf(frame("side",x=1f,width=.1f))))

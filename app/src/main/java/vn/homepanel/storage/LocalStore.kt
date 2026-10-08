@@ -59,7 +59,8 @@ class BindingStore(context: Context) {
     fun load(): List<SpatialBinding> {
         val raw = prefs.getString("v1", "[]")!!
         val array = JSONArray(raw)
-        return (0 until array.length()).map { SpatialBinding.fromJson(array.getJSONObject(it)) }
+        // One damaged record must not hide, or block saving, every other placement.
+        return (0 until array.length()).mapNotNull { runCatching { SpatialBinding.fromJson(array.getJSONObject(it)) }.getOrNull() }
     }
     fun save(bindings: List<SpatialBinding>) {
         check(prefs.edit().putString("v1", JSONArray(bindings.map { it.toJson() }).toString()).commit()) { "Could not save placement." }

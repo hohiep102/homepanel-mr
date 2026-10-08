@@ -13,6 +13,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -55,6 +56,10 @@ private val Corners = RoundedCornerShape(20.dp)
     var showAllDevices by remember(state.serverKey) { mutableStateOf(false) }
     val displayCatalog = remember(state.catalog, showAllDevices) { deviceCatalogForDisplay(state.catalog, showAllDevices) }
     val selected = displayCatalog.devices.find { it.key == state.selectedDevice }
+    // Until a server or the demo provides a home, only setup is meaningful; Placed appears once something is placed.
+    val hasHome = state.demo || state.connected || state.catalog.devices.isNotEmpty()
+    val tabs = listOfNotNull(R.string.rooms, R.string.devices, R.string.placed.takeIf { state.bindings.isNotEmpty() })
+    val current = when { !hasHome -> R.string.connection; page == R.string.connection || page in tabs -> page; else -> R.string.rooms }
     fun changeVisibility(showAll: Boolean) {
         showAllDevices = showAll; fullControls = false; showDetail = false
         val next = deviceCatalogForDisplay(state.catalog, showAll)
@@ -81,7 +86,9 @@ private val Corners = RoundedCornerShape(20.dp)
                         Text("HOME / PANEL", fontWeight = FontWeight.ExtraBold, fontSize = 25.sp, letterSpacing = 2.sp)
                         Text(if (inRoom) stringResource(R.string.tagline_mr) else stringResource(R.string.tagline), color = Muted, fontSize = 13.sp)
                     }
-                    Pill(if (state.demo) "DEMO" else if (state.connected) "● LIVE" else "○ OFFLINE", if (state.connected) Mint else Amber)
+                    val statusLabel = stringResource(R.string.connection)
+                    Pill(if (state.demo) "DEMO" else if (state.connected) "● LIVE" else "○ OFFLINE", if (state.connected) Mint else Amber,
+                        onClick = if (hasHome) ({ page = R.string.connection }) else null, description = statusLabel)
                     if (!inRoom) {
                         var languages by remember { mutableStateOf(false) }
                         val language by AppLanguage.language.collectAsState()
@@ -97,15 +104,28 @@ private val Corners = RoundedCornerShape(20.dp)
                     TextButton(onClick = { showHandHelp = true }) { Text(stringResource(R.string.hands_title)) }
                     if (!inRoom) TextButton(onClick = { showLegalInfo = true }) { Text(stringResource(R.string.about)) }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    listOf(R.string.rooms, R.string.devices, R.string.placed, R.string.connection).forEach { title ->
-                        FilterChip(selected = page == title, onClick = { page = title }, label = { Text(stringResource(title)) })
+                if (hasHome && current == R.string.connection) TextButton(onClick = { page = R.string.rooms }) { Text(stringResource(R.string.back_home)) }
+                // In the room the exits stay even after the connection is forgotten.
+                else if (inRoom && !hasHome) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    onExplore?.let { FilledTonalButton(onClick = it) { Text(stringResource(R.string.explore)) } }; onExit?.let { TextButton(onClick = it) { Text(stringResource(R.string.return_window)) } }
+                }
+                else if (hasHome) Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    tabs.forEach { title ->
+                        FilterChip(selected = current == title, onClick = { page = title }, label = { Text(if (title == R.string.placed) "${stringResource(title)} · ${state.bindings.size}" else stringResource(title)) })
                     }
                     Spacer(Modifier.weight(1f))
                     if (!inRoom) FilledTonalButton(onClick = onEnterRoom, enabled = state.connected) { Text(stringResource(R.string.enter_room)) }
                     else { onExplore?.let { FilledTonalButton(onClick = it) { Text(stringResource(R.string.explore)) } }; onExit?.let { TextButton(onClick = it) { Text(stringResource(R.string.return_window)) } } }
                 }
-                if (page in listOf(R.string.rooms, R.string.devices) && state.catalog.devices.isNotEmpty()) {
+                if (hasHome && current != R.string.connection && (state.demo || !state.connected)) {
+                    Surface(color = Amber.copy(alpha = .10f), shape = RoundedCornerShape(12.dp)) {
+                        Row(Modifier.padding(start = 14.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(if (state.demo) stringResource(R.string.demo_banner) else stringResource(R.string.stale_data, state.status), Modifier.weight(1f), color = Amber, fontSize = 13.sp)
+                            TextButton(onClick = { page = R.string.connection }) { Text(stringResource(if (state.demo) R.string.connect_ha else R.string.reconnect)) }
+                        }
+                    }
+                }
+                if (current in listOf(R.string.rooms, R.string.devices) && state.catalog.devices.isNotEmpty()) {
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                         FilterChip(selected = !showAllDevices, onClick = { changeVisibility(false) }, label = { Text(stringResource(R.string.everyday_devices)) })
                         FilterChip(selected = showAllDevices, onClick = { changeVisibility(true) }, label = { Text(stringResource(R.string.all_devices)) })
@@ -126,8 +146,8 @@ private val Corners = RoundedCornerShape(20.dp)
                         }
                     }
                 }
-                when (page) {
-                    R.string.connection -> ConnectionScreen(store)
+                when (current) {
+                    R.string.connection -> Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) { Box(Modifier.widthIn(max = 820.dp)) { ConnectionScreen(store) } }
                     R.string.rooms -> {
                         if (state.catalog.devices.isEmpty()) {
                             EmptyCard(stringResource(R.string.welcome_title), stringResource(R.string.welcome_body))
@@ -143,12 +163,16 @@ private val Corners = RoundedCornerShape(20.dp)
                         }
                     }
                     R.string.placed -> {
-                        if (state.bindings.isEmpty()) EmptyCard(stringResource(R.string.no_placed_title), stringResource(R.string.no_placed_body))
+                        // Known only while a room is open: placements the current scan cannot find come first, ready to place again.
+                        val resolvedIds by store.resolvedPlacements.collectAsState()
+                        val ordered = state.bindings.sortedBy { resolvedIds?.contains(it.id) != false }
                         LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            items(state.bindings, key = { it.id }) { b ->
+                            items(ordered, key = { it.id }) { b ->
+                                val missing = resolvedIds?.contains(b.id) == false
                                 Surface(shape = Corners, color = Card) {
                                     Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                                        Column(Modifier.weight(1f)) { Text(b.label, fontWeight = FontWeight.Bold); state.catalog.entities[b.entityId]?.name?.takeIf { it != b.label }?.let { Text(it, color = Muted, fontSize = 13.sp) }; Text(stringResource(R.string.room_saved), color = Muted, fontSize = 13.sp) }
+                                        Column(Modifier.weight(1f)) { Text(b.label, fontWeight = FontWeight.Bold); state.catalog.entities[b.entityId]?.name?.takeIf { it != b.label }?.let { Text(it, color = Muted, fontSize = 13.sp) }; Text(stringResource(if (missing) R.string.placement_missing else R.string.room_saved), color = if (missing) Amber else Muted, fontSize = 13.sp) }
+                                        TextButton(onClick = { store.select(b.deviceKey, b.entityId); (onPlace ?: onEnterRoom)() }, enabled = state.connected) { Text(stringResource(R.string.place_again)) }
                                         TextButton(onClick = {
                                             if (deviceCatalogForDisplay(state.catalog).devices.none { d -> d.key == b.deviceKey && d.entities.any { it.id == b.entityId } }) showAllDevices = true
                                             store.select(b.deviceKey, b.entityId); page = R.string.devices; showDetail = true; fullControls = false; roomFilter = null; search = ""
@@ -167,7 +191,6 @@ private val Corners = RoundedCornerShape(20.dp)
                                 OutlinedButton(onClick = { store.showDemo() }) { Text(stringResource(R.string.explore_demo)) }
                             }
                         } else {
-                            if (!state.connected) Text(stringResource(R.string.stale_data, state.status), color = Amber)
                             state.catalog.warnings.forEach { Text(stringResource(it), color = Amber, fontSize = 12.sp) }
                             BoxWithConstraints(Modifier.weight(1f)) {
                                 val wide = maxWidth >= 720.dp
@@ -177,16 +200,11 @@ private val Corners = RoundedCornerShape(20.dp)
                                             OutlinedTextField(search, { search = it }, Modifier.fillMaxWidth(), placeholder = { Text(stringResource(R.string.search_devices)) }, singleLine = true, shape = RoundedCornerShape(14.dp))
                                             val filtered = displayCatalog.devices.filter { (roomFilter == null || it.belongsToRoom(roomFilter!!)) && ("${it.name} ${it.area} ${it.entities.joinToString { e -> e.name + e.id }}").contains(search, true) }
                                             val rooms = listOf<String?>(null) + summarizeRooms(displayCatalog).map { it.id }
-                                            var filterMenu by remember { mutableStateOf(false) }
-                                            Box {
-                                                TextButton(onClick = { filterMenu = true }) { Text(stringResource(R.string.device_count, roomFilter?.let { state.catalog.areas[it] ?: it.ifBlank { stringResource(R.string.no_area) } } ?: stringResource(R.string.all_rooms), filtered.size)) }
-                                                DropdownMenu(expanded = filterMenu, onDismissRequest = { filterMenu = false }) {
-                                                    rooms.forEach { name -> DropdownMenuItem(text = { Text(name?.let { state.catalog.areas[it] ?: it.ifBlank { stringResource(R.string.no_area) } } ?: stringResource(R.string.all_rooms)) }, onClick = {
-                                                        roomFilter = name; filterMenu = false; fullControls = false; showDetail = false
-                                                        displayCatalog.devices.firstOrNull { name == null || it.belongsToRoom(name) }?.let { store.select(it.key, primaryEntity(it,name)?.id) }
-                                                    }) }
-                                                }
-                                            }
+                                            InlinePicker(stringResource(R.string.device_count, roomFilter?.let { state.catalog.areas[it] ?: it.ifBlank { stringResource(R.string.no_area) } } ?: stringResource(R.string.all_rooms), filtered.size),
+                                                rooms, { name -> name?.let { state.catalog.areas[it] ?: it.ifBlank { stringResource(R.string.no_area) } } ?: stringResource(R.string.all_rooms) }, { name ->
+                                                    roomFilter = name; fullControls = false; showDetail = false
+                                                    displayCatalog.devices.firstOrNull { name == null || it.belongsToRoom(name) }?.let { store.select(it.key, primaryEntity(it,name)?.id) }
+                                                }, Modifier.padding(vertical = 6.dp), selected = roomFilter)
                                             LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                                 items(filtered, key = { it.key }) { device ->
                                                     DeviceCard(device, state.selectedDevice == device.key, state.selectedEntity, state.bindings.filter { it.deviceKey == device.key }.map { it.entityId }.toSet(),
@@ -262,7 +280,12 @@ private val Corners = RoundedCornerShape(20.dp)
     }
 }
 private fun symbol(domain: String?) = when(domain) { "light" -> "☀"; "climate" -> "❄"; "fan" -> "✣"; "cover" -> "▤"; "sensor" -> "◉"; else -> "◈" }
-@Composable private fun Pill(text: String, color: Color) { Text(text, color = color, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp, modifier = Modifier.background(color.copy(alpha = .10f), RoundedCornerShape(20.dp)).padding(horizontal = 13.dp, vertical = 8.dp)) }
+@Composable private fun Pill(text: String, color: Color, onClick: (() -> Unit)? = null, description: String? = null) {
+    val shape = RoundedCornerShape(20.dp)
+    val base = Modifier.background(color.copy(alpha = .10f), shape)
+    val interactive = if (onClick != null) base.clip(shape).clickable(onClickLabel = description, onClick = onClick) else base
+    Text(text, color = color, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp, modifier = interactive.padding(horizontal = 13.dp, vertical = 8.dp))
+}
 @Composable private fun EmptyCard(title: String, description: String) {
     Surface(color = Card, shape = Corners, modifier = Modifier.fillMaxWidth()) { Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) { Text(title, fontSize = 23.sp, fontWeight = FontWeight.Bold); Text(description, color = Muted, lineHeight = 23.sp) } }
 }
@@ -277,11 +300,7 @@ private fun symbol(domain: String?) = when(domain) { "light" -> "☀"; "climate"
                 Text(symbol(entity?.domain), color = Mint, fontSize = 40.sp)
             }
             if (device.entities.size > 1) {
-                var expanded by remember { mutableStateOf(false) }
-                Box {
-                    OutlinedButton(onClick = { expanded = true }) { Text((entity?.name ?: stringResource(R.string.select_function)) + " ▾") }
-                    DropdownMenu(expanded, { expanded = false }) { device.entities.forEach { e -> DropdownMenuItem(text = { Text(e.name) }, onClick = { store.select(device.key, e.id); expanded = false }) } }
-                }
+                InlinePicker(entity?.name ?: stringResource(R.string.select_function), device.entities, { it.name }, { store.select(device.key, it.id) }, Modifier.fillMaxWidth(), selected = entity)
             }
             if (entity != null) {
                 val enabled = state.connected && entity.available && entity.id !in state.busy
@@ -310,7 +329,7 @@ private fun symbol(domain: String?) = when(domain) { "light" -> "☀"; "climate"
     }
     if (e.domain == "light" && a.strings("supported_color_modes").any { it !in setOf("onoff", "unknown") } && has("turn_on")) {
         anyControl = true
-        ValueControl(stringResource(R.string.brightness), (a.optInt("brightness", 255) / 255f * 100).coerceIn(1f, 100f), 1f..100f, enabled, suffix = "%", step = if(compact) 10f else 1f, showSlider = !compact) { send(Control.Brightness(it.roundToInt())) }
+        ValueControl(stringResource(R.string.brightness), brightnessPercent(e), 0f..100f, enabled, suffix = "%", step = if(compact) 10f else 1f, showSlider = !compact) { send(Control.Brightness(it.roundToInt())) }
     }
     if (e.domain == "climate") {
         if (a.has("current_temperature") && !a.isNull("current_temperature")) Text(stringResource(R.string.room_temperature, a.optDouble("current_temperature").toString(), a.nullString("temperature_unit") ?: catalog.temperatureUnit), color = Muted)
@@ -326,12 +345,11 @@ private fun symbol(domain: String?) = when(domain) { "light" -> "☀"; "climate"
         }
         if (has("set_hvac_mode") && a.strings("hvac_modes").isNotEmpty()) {
             anyControl = true
-            var expanded by remember { mutableStateOf(false) }
             if (compact) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("off", e.state, "cool", "heat", "auto").distinct().filter { it in a.strings("hvac_modes") }.take(3).forEach { mode ->
                     OutlinedButton(onClick = { send(Control.Mode(mode)) }, enabled = enabled && mode != e.state, modifier = Modifier.weight(1f)) { Text(displayState(e.copy(state = mode))) }
                 }
-            } else Box { OutlinedButton(onClick = { expanded = true }, enabled = enabled) { Text(stringResource(R.string.hvac_mode, displayState(e))) }; DropdownMenu(expanded, { expanded = false }) { a.strings("hvac_modes").forEach { mode -> DropdownMenuItem(text = { Text(mode) }, onClick = { send(Control.Mode(mode)); expanded = false }) } } }
+            } else InlinePicker(stringResource(R.string.hvac_mode, displayState(e)), a.strings("hvac_modes"), { mode -> displayState(e.copy(state = mode)) }, { mode -> send(Control.Mode(mode)) }, enabled = enabled, selected = e.state)
         }
     }
     if (e.domain == "fan" && e.supports(1) && has("set_percentage")) {

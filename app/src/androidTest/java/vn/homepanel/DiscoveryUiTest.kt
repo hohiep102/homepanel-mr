@@ -39,7 +39,6 @@ class DiscoveryUiTest {
                 setAttribute("uuid","aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
             },NsdManager.PROTOCOL_DNS_SD,listener)
             assertTrue(registered.await(10,TimeUnit.SECONDS));assertNull(registrationError)
-            compose.onNodeWithText(compose.activity.getString(R.string.connection)).performClick()
             compose.waitUntil(20_000) { compose.onAllNodesWithTag("server-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").fetchSemanticsNodes().isNotEmpty() }
             assertTrue("Discovery must not authenticate",fixture.received.isEmpty())
             val screenshot=compose.onRoot().captureToImage().asAndroidBitmap()

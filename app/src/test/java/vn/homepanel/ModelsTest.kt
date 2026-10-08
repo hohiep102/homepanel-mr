@@ -25,6 +25,15 @@ class ModelsTest {
         assertEquals(42,call.data.getInt("brightness_pct"))
         assertEquals("turn_on",call.service)
     }
+    @Test fun offLightStartsFromZeroAndZeroTurnsItOff() {
+        val catalog = Demo.catalog()
+        val on = catalog.entities.getValue("light.living")
+        val off = on.copy(state = "off", attributes = JSONObject(on.attributes.toString()).put("brightness", JSONObject.NULL))
+        assertEquals(0f, brightnessPercent(off), 0f)
+        assertEquals(184 / 255f * 100, brightnessPercent(on), .01f)
+        assertEquals("turn_off", buildServiceCall(on, Control.Brightness(0), catalog).service)
+        assertEquals(10, buildServiceCall(off, compactAdjustment(off, catalog)!!.action(true), catalog).data.getInt("brightness_pct"))
+    }
     @Test fun rejectsUnavailableAndUnsupportedControls() {
         val c = Demo.catalog()
         assertThrows(IllegalArgumentException::class.java) { buildServiceCall(c.entities.getValue("switch.coffee"),Control.Power(true),c) }
