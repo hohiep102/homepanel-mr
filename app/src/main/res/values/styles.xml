@@ -13,4 +13,14 @@
   <item name="device_panel" type="id" />
   <item name="target_panel" type="id" />
   <item name="room_navigation" type="id" />
+  <item name="camera_screen_0" type="id" />
+  <item name="camera_screen_1" type="id" />
+  <item name="camera_screen_2" type="id" />
+  <item name="camera_screen_3" type="id" />
+  <item name="camera_screen_preview" type="id" />
+  <item name="camera_video_0" type="id" />
+  <item name="camera_video_1" type="id" />
+  <item name="camera_video_2" type="id" />
+  <item name="camera_video_3" type="id" />
+  <item name="camera_video_preview" type="id" />
 </resources>

@@ -16,8 +16,30 @@ private val roomBinaryClasses = setOf(
 )
 private val roomSensorUnits = setOf("°C", "°F", "%", "W", "kW", "Wh", "kWh", "MWh", "ppm", "lx", "µg/m³", "μg/m³", "m³", "m3", "L", "l")
 
+/**
+ * Integrations (cameras especially) often expose settings as plain switches without marking them as
+ * configuration: away or privacy mode, motion detection, notifications, status lights. Matched as whole
+ * words in English and Vietnamese; ids use underscores, so they are split too. Android's ICU regex has no
+ * (?U) flag, so word edges are spelled out with letter classes and the text is lowercased instead.
+ */
+private val settingSwitch = Regex(
+    "(?<![\\p{L}\\p{N}])(away|vắng nhà|privacy|riêng tư|detection|detect|phát hiện|notifications?|thông báo|alerts?|cảnh báo|indicator|status light|đèn báo|đèn trạng thái|" +
+        "child lock|khoá trẻ em|khóa trẻ em|do not disturb|không làm phiền|night vision|hồng ngoại|tầm nhìn đêm|flip|lật hình|record(ing)?|ghi hình|" +
+        "auto update|tự động cập nhật|sensitivity|độ nhạy|buzzer|beep|còi|tracking|theo dõi|mode|chế độ)(?![\\p{L}\\p{N}])"
+)
+
+fun HaEntity.isSetting() = (domain == "switch" || domain == "input_boolean") &&
+    settingSwitch.containsMatchIn((name + " " + id.substringAfter('.').replace('_', ' ')).lowercase())
+
+private val lightWords = Regex("(?<![\\p{L}\\p{N}])(đèn|bóng đèn|light|lights|lamp|chandelier|downlight|spotlight)(?![\\p{L}\\p{N}])")
+
+/** Smart wall switches wired to lights are `switch` entities in HA; they count as lights when named as one. */
+fun HaEntity.isLight() = domain == "light" ||
+    (domain == "switch" && !isSetting() && lightWords.containsMatchIn((name + " " + id.substringAfter('.').replace('_', ' ')).lowercase()))
+
 fun HaEntity.isEveryday(): Boolean {
     if (hidden || disabled || category != null) return false
+    if (isSetting()) return false
     if (domain in everydayDomains) return true
     val deviceClass = attributes.nullString("device_class")
     return when (domain) {

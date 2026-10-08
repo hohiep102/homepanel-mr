@@ -62,6 +62,18 @@ class AppStore(private val app: Application) {
         if (current.demo || !current.connected) return null
         return session?.cameraSnapshot(entityId)
     }
+    /** HLS playlist and its client, or null in demo mode or while disconnected. */
+    suspend fun cameraHls(entityId: String): Pair<String, okhttp3.OkHttpClient>? {
+        val current = state.value
+        if (current.demo || !current.connected) return null
+        return session?.cameraHls(entityId)
+    }
+    /** Live MJPEG frames; empty in demo mode or while disconnected. */
+    fun cameraStream(entityId: String): kotlinx.coroutines.flow.Flow<ByteArray> {
+        val current = state.value
+        if (current.demo || !current.connected) return kotlinx.coroutines.flow.emptyFlow()
+        return session?.cameraStream(entityId) ?: kotlinx.coroutines.flow.emptyFlow()
+    }
     /** Bindings are keyed by the server URL; reconnecting by IP, hostname or a remote URL must not lose them. */
     private fun adoptBindings(serverKey: String, catalog: Catalog) {
         if (!bindingsReadable || catalog.entities.isEmpty() || allBindings.any { it.serverKey == serverKey }) return

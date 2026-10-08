@@ -143,9 +143,12 @@ import kotlin.math.roundToInt
                             }
                         } else if (displayCatalog.devices.isEmpty()) {
                             EmptyCard(stringResource(R.string.no_everyday_devices), stringResource(R.string.advanced_devices_help))
-                        } else RoomOverview(displayCatalog, state.connected, state.bindings.map { it.deviceKey }.toSet()) { name ->
+                        } else {
+                            HomeOverviewStrip(remember(state.catalog) { homeOverview(state.catalog) })
+                            RoomOverview(displayCatalog, state.connected, state.bindings.map { it.deviceKey }.toSet()) { name ->
                             roomFilter = name; search = ""; showDetail = false; fullControls = false; page = R.string.devices
                             displayCatalog.devices.firstOrNull { it.belongsToRoom(name) }?.let { store.select(it.key, primaryEntity(it,name)?.id) }
+                        }
                         }
                     }
                     R.string.placed -> {

@@ -3,6 +3,7 @@ package vn.homepanel.spatial
 import com.meta.spatial.core.Pose
 import com.meta.spatial.core.Quaternion
 import com.meta.spatial.core.Vector3
+import kotlin.math.acos
 import kotlin.math.exp
 
 /** Keep the editor beside the aim direction, but still while the user targets its buttons. */
@@ -26,8 +27,9 @@ class PlacementPanelFollow(private val offset: Vector3 = Vector3(.46f, -.12f, .7
             return current
         }
         val desired = desired(head)
-        // Small head movements should not make a button move away from the hand.
-        if (!current.q.isWithinAngleDegrees(desired.q, 18f) || current.t.distanceTo(desired.t) > .20f) following = true
+        // The panel stays put in the room while the user turns to aim; it only comes back once it has
+        // clearly left its place in view, or the user walked away from it.
+        if (!following && (angleDegrees(current.t - head.t, desired.t - head.t) > 40f || current.t.distanceTo(desired.t) > .6f)) following = true
         if (!following) return current
         val next = current.lerp(desired, 1f - exp(-dt / .12f))
         if (next.isApproximatelyEqual(desired, .008f, .008f)) following = false
@@ -47,4 +49,9 @@ class PlacementPanelFollow(private val offset: Vector3 = Vector3(.46f, -.12f, .7
             return panelPose(Pose(head.t, upright), Vector3(.46f, -.12f, .78f))
         }
     }
+}
+
+private fun angleDegrees(a: Vector3, b: Vector3): Float {
+    val lengths = a.length() * b.length()
+    return if (lengths < 1e-6f) 0f else Math.toDegrees(acos((a.dot(b) / lengths).coerceIn(-1f, 1f)).toDouble()).toFloat()
 }

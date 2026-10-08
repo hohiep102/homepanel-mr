@@ -10,6 +10,10 @@ Use Community for normal development. A local Android emulator can verify the da
 
 Store release is unsigned without publisher signing configuration. GitHub Actions runs these checks with read-only repository permissions and no signing or HA secrets.
 
+## Headset test build
+
+Run `scripts/install-for-test.sh` before handing the headset to a tester. It builds and installs the signed Store edition over the existing one (Home Assistant login and placements survive), removes every other HomePanel edition so an older build cannot be opened by mistake, and checks that the installed APK matches the build.
+
 ## Android instrumentation
 
 Use an ARM64 API 36 emulator or a dedicated test device. The APK currently includes ARM64 native libraries. Instrumentation fixtures can reset app credentials and bindings, so do not run them on a headset connected to a real home. Always select a specific test serial.

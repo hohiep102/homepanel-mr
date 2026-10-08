@@ -18,6 +18,8 @@ data class PlacementFormState(
     val ready: Boolean = false, val loading: Boolean = false, val settingUp: Boolean = false, val saving: Boolean = false,
     val countdown: Int = 0, val distance: Float = 2f, val width: Float = .5f,
     val height: Float = .5f, val surface: Boolean = false, val hint: Int = R.string.frame_aim, val warning: String? = null,
+    /** A camera is placed as a 16:9 screen: one size control, the height follows. */
+    val screen: Boolean = false,
 )
 
 @Composable fun PlacementForm(
@@ -41,8 +43,7 @@ data class PlacementFormState(
         }
         Text(stringResource(R.string.confirm_body), fontSize = 14.sp)
         // The frozen position stays; only its size can still change before saving.
-        ValueControl(stringResource(R.string.frame_width), state.width, .1f..3f, !state.saving, "m", step=.1f, showSlider=false) { onAdjust(state.copy(width=it)) }
-        ValueControl(stringResource(R.string.frame_height), state.height, .1f..3f, !state.saving, "m", step=.1f, showSlider=false) { onAdjust(state.copy(height=it)) }
+        SizeControls(state, !state.saving, onAdjust)
     } else if (state.countdown > 0) {
         Text(stringResource(R.string.placement_countdown,state.countdown))
         OutlinedButton(onClick = onCancelCountdown) { Text(stringResource(R.string.placement_cancel_countdown)) }
@@ -58,8 +59,15 @@ data class PlacementFormState(
     if (!state.confirming) {
         Text(stringResource(state.hint), fontSize = 13.sp)
         ValueControl(stringResource(R.string.placement_distance), state.distance, .3f..6f, state.countdown == 0, "m", step=.1f, showSlider=false) { onAdjust(state.copy(distance=it,surface=false)) }
-        ValueControl(stringResource(R.string.frame_width), state.width, .1f..3f, state.countdown == 0, "m", step=.1f, showSlider=false) { onAdjust(state.copy(width=it)) }
-        ValueControl(stringResource(R.string.frame_height), state.height, .1f..3f, state.countdown == 0, "m", step=.1f, showSlider=false) { onAdjust(state.copy(height=it)) }
+        SizeControls(state, state.countdown == 0, onAdjust)
         Row { Checkbox(state.surface, { onAdjust(state.copy(surface=it)) }, enabled=state.countdown==0); Text(stringResource(R.string.snap_surface)) }
+    }
+}
+
+@Composable private fun SizeControls(state: PlacementFormState, enabled: Boolean, onAdjust: (PlacementFormState) -> Unit) {
+    if (state.screen) ValueControl(stringResource(R.string.screen_size), state.width, .3f..3f, enabled, "m", step=.1f, showSlider=false) { onAdjust(state.copy(width=it, height=vn.homepanel.spatial.screenHeight(it))) }
+    else {
+        ValueControl(stringResource(R.string.frame_width), state.width, .1f..3f, enabled, "m", step=.1f, showSlider=false) { onAdjust(state.copy(width=it)) }
+        ValueControl(stringResource(R.string.frame_height), state.height, .1f..3f, enabled, "m", step=.1f, showSlider=false) { onAdjust(state.copy(height=it)) }
     }
 }

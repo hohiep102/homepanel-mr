@@ -91,6 +91,8 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    // Cameras HA can only stream (RTSP) play as HLS; OkHttp keeps the user's own TLS trust for the server.
+    for (module in listOf("exoplayer", "exoplayer-hls", "datasource-okhttp")) implementation("androidx.media3:media3-$module:1.5.1")
     for (module in listOf("", "-vr", "-toolkit", "-compose", "-mruk", "-isdk", "-physics")) {
         implementation("com.meta.spatial:meta-spatial-sdk$module:0.14.0")
     }

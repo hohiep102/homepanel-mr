@@ -45,5 +45,6 @@ __pycache__/
 !/scripts/build-release.py
 !/scripts/create-release-key.py
 !/scripts/install-quest.sh
+!/scripts/install-for-test.sh
 !/scripts/generate-notices.py
 !/scripts/build-public-site.py

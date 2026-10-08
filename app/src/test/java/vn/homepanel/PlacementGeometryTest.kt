@@ -37,4 +37,31 @@ class PlacementGeometryTest {
         assertEquals("wall", placementAnchor("unknown", Vector3(.2f, 1.2f, 1.9f), anchors))
         assertNull(placementAnchor(null, Vector3(0f, 0f, 0f), emptyList()))
     }
+
+    // A 1.2 x 0.7 x 0.1 TV whose anchor faces the viewer, 2 m ahead.
+    private val tv = Pose(Vector3(0f, 1.2f, 2f), Quaternion.lookRotation(Vector3(0f, 0f, -1f)))
+    private val tvMin = Vector3(-.6f, -.35f, -.05f); private val tvMax = Vector3(.6f, .35f, .05f)
+
+    @Test fun frameFitsTheFrontFaceOfAScannedObject() {
+        val fit = fittedFrame(tv, tvMin, tvMax, Vector3(0f, 0f, -1f))!!
+        assertEquals(1.2f, fit.width, .001f)
+        assertEquals(.7f, fit.height, .001f)
+        assertEquals(1.94f, fit.pose.t.z, .001f)
+        assertEquals(1.2f, fit.pose.t.y, .001f)
+        assertEquals(1f, forward(fit.pose).z, .001f)
+    }
+
+    @Test fun sideFaceUsesTheDepthAsWidth() {
+        val fit = fittedFrame(tv, tvMin, tvMax, Vector3(1f, 0f, 0f))!!
+        assertEquals(.1f, fit.width, .001f)
+        assertEquals(.7f, fit.height, .001f)
+    }
+
+    @Test fun planesFitAndTopsOrWallSizedFacesDoNot() {
+        val art = fittedFrame(tv, Vector3(-.3f, -.4f, 0f), Vector3(.3f, .4f, 0f), Vector3(0f, 0f, -1f))!!
+        assertEquals(.6f, art.width, .001f)
+        assertEquals(.8f, art.height, .001f)
+        assertNull(fittedFrame(tv, tvMin, tvMax, Vector3(0f, 1f, 0f)))
+        assertNull(fittedFrame(tv, Vector3(-2f, -1.3f, 0f), Vector3(2f, 1.3f, 0f), Vector3(0f, 0f, -1f)))
+    }
 }
