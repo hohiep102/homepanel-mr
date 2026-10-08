@@ -56,6 +56,12 @@ class AppStore(private val app: Application) {
     /** Placement ids the room currently resolves; null while no room is open. */
     val resolvedPlacements = resolvedFlow.asStateFlow()
     fun reportResolvedPlacements(ids: Set<String>?) { resolvedFlow.value = ids }
+    /** Latest still from a camera, or null in demo mode or while disconnected. */
+    suspend fun cameraSnapshot(entityId: String): ByteArray? {
+        val current = state.value
+        if (current.demo || !current.connected) return null
+        return session?.cameraSnapshot(entityId)
+    }
     /** Bindings are keyed by the server URL; reconnecting by IP, hostname or a remote URL must not lose them. */
     private fun adoptBindings(serverKey: String, catalog: Catalog) {
         if (!bindingsReadable || catalog.entities.isEmpty() || allBindings.any { it.serverKey == serverKey }) return

@@ -114,7 +114,23 @@ class HaSession(private val address: ServerAddress, private val token: String, p
         }
     }
     override fun close() { fail(HaFailure(R.string.not_connected)) }
+    /** One still image from HA's camera proxy, authenticated with this session's token. Never follows redirects. */
+    suspend fun cameraSnapshot(entityId: String): ByteArray = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        require(cameraEntity.matches(entityId)) { "Not a camera entity." }
+        val request = Request.Builder().url("${address.base}/api/camera_proxy/$entityId").header("Authorization", "Bearer $token").build()
+        cameraHttp(http).newCall(request).execute().use { response ->
+            if (!response.isSuccessful || response.body?.contentType()?.type != "image") throw HaFailure(R.string.camera_unavailable, code = response.code.toString())
+            val body = response.body ?: throw HaFailure(R.string.camera_unavailable)
+            if (body.contentLength() > MAX_SNAPSHOT) throw HaFailure(R.string.camera_unavailable)
+            body.byteStream().use { input -> input.readNBytes(MAX_SNAPSHOT + 1).also { if (it.size > MAX_SNAPSHOT) throw HaFailure(R.string.camera_unavailable) } }
+        }
+    }
     companion object {
         private val sharedHttp = OkHttpClient.Builder().pingInterval(20, TimeUnit.SECONDS).connectTimeout(12, TimeUnit.SECONDS).build()
+        private val cameraEntity = Regex("camera\\.[a-z0-9_]+")
+        private const val MAX_SNAPSHOT = 6 * 1024 * 1024
+        private var cameraClient: Pair<OkHttpClient, OkHttpClient>? = null
+        @Synchronized private fun cameraHttp(base: OkHttpClient): OkHttpClient =
+            cameraClient?.takeIf { it.first === base }?.second ?: base.newBuilder().followRedirects(false).followSslRedirects(false).readTimeout(8, TimeUnit.SECONDS).callTimeout(10, TimeUnit.SECONDS).build().also { cameraClient = base to it }
     }
 }

@@ -44,7 +44,7 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.ConcurrentHashMap
 
 private enum class Mode { HOME, EXPLORE, AIM, CONFIRM, CONTROL }
-private data class RoomUi(val mode: Mode = Mode.HOME, val status: String = "", val target: String = "", val targetBinding: String? = null, val distance: Float = 2f, val surface: Boolean = true, val resolved: Int = 0, val total: Int = 0, val canSave: Boolean = false, val handsTracked: Boolean = false, val countdown: Int = 0, val width: Float = .5f, val height: Float = .5f, val aimHint: Int = R.string.frame_aim, val saving: Boolean = false, val loading: Boolean = false, val settingUp: Boolean = false)
+private data class RoomUi(val mode: Mode = Mode.HOME, val status: String = "", val target: String = "", val targetBinding: String? = null, val distance: Float = 2f, val surface: Boolean = true, val resolved: Int = 0, val total: Int = 0, val canSave: Boolean = false, val handsTracked: Boolean = false, val countdown: Int = 0, val width: Float = .5f, val height: Float = .5f, val aimHint: Int = R.string.frame_aim, val saving: Boolean = false, val loading: Boolean = false, val settingUp: Boolean = false, val roomKind: RoomKind = RoomKind.UNKNOWN, val warning: String? = null, val controlBinding: String? = null)
 private data class Placement(val room: String, val anchor: String, val local: Pose, val world: Pose, val device: String, val entity: String, val label: String, val server: String, val width: Float, val height: Float)
 
 class RoomActivity : AppSystemActivity() {
@@ -123,7 +123,9 @@ class RoomActivity : AppSystemActivity() {
     override fun registerPanels(): List<PanelRegistration> = listOf(
         panel(R.id.home_panel, 1.08f, .76f) {
             val room by ui.collectAsState()
-            HomeScreen(store, {}, inRoom = true, onPlace = { enqueue { beginAim() } }, roomStatus = room.status + " · " + stringResource(if (room.handsTracked) R.string.hands_ready else R.string.hands_missing) + if (room.total > 0) stringResource(R.string.resolved_placements, room.resolved, room.total) else "", onScan = { ensureRoom(true) }, onExit = { exitToWindow() }, onExplore = { enqueue { mode(Mode.EXPLORE) } })
+            val state by store.state.collectAsState()
+            val suggestions = remember(room.roomKind, state.catalog, state.bindings) { suggestedForRoom(room.roomKind, state.catalog, state.bindings) }
+            HomeScreen(store, {}, inRoom = true, onPlace = { enqueue { beginAim() } }, suggestions = suggestions, onSuggest = { device -> store.select(device.key, primaryEntity(device)?.id); enqueue { beginAim() } }, roomStatus = room.status + " · " + stringResource(if (room.handsTracked) R.string.hands_ready else R.string.hands_missing) + if (room.total > 0) stringResource(R.string.resolved_placements, room.resolved, room.total) else "", onScan = { ensureRoom(true) }, onExit = { exitToWindow() }, onExplore = { enqueue { mode(Mode.EXPLORE) } })
         },
         panel(R.id.device_panel, .58f, .90f) {
             val room by ui.collectAsState()
@@ -140,7 +142,7 @@ class RoomActivity : AppSystemActivity() {
                         when(room.mode) {
                             Mode.AIM, Mode.CONFIRM -> {
                                 PlacementForm(
-                                    PlacementFormState(device=state.catalog.devices.find { it.key == state.selectedDevice }?.let { placementLabel(it,state.selectedEntity.orEmpty()) }.orEmpty(), status=room.status, confirming=room.mode==Mode.CONFIRM, ready=room.canSave, loading=room.loading, settingUp=room.settingUp, saving=room.saving, countdown=room.countdown, distance=room.distance, width=room.width, height=room.height, surface=room.surface, hint=room.aimHint),
+                                    PlacementFormState(device=state.catalog.devices.find { it.key == state.selectedDevice }?.let { placementLabel(it,state.selectedEntity.orEmpty()) }.orEmpty(), status=room.status, confirming=room.mode==Mode.CONFIRM, ready=room.canSave, loading=room.loading, settingUp=room.settingUp, saving=room.saving, countdown=room.countdown, distance=room.distance, width=room.width, height=room.height, surface=room.surface, hint=room.aimHint, warning=room.warning),
                                     onAdjust={ value -> ui.update { it.copy(distance=value.distance,width=value.width,height=value.height,surface=value.surface) } },
                                     onScan={ ensureRoom(true) },
                                     onReload={ ensureRoom(false) },
@@ -155,7 +157,13 @@ class RoomActivity : AppSystemActivity() {
                                     if (fullControls) {
                                         TextButton(onClick = { fullControls = false }) { Text(stringResource(R.string.quick_controls)) }
                                         DeviceDetail(store, it, onPlace = { enqueue { beginAim() } })
-                                    } else QuickControls(store, it, onDetails = { fullControls = true }, onPlace = { enqueue { beginAim() } }, placementLabel = stringResource(R.string.place_object))
+                                    } else QuickControls(store, it, onDetails = { fullControls = true }, onPlace = { enqueue { beginAim() } }, placementLabel = stringResource(R.string.place_object), large = true)
+                                }
+                                room.controlBinding?.takeIf { room.mode == Mode.CONTROL }?.let { id ->
+                                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                        OutlinedButton(onClick = { enqueue { beginAim() } }, shape = Rounded, modifier = Modifier.weight(1f).heightIn(min = 56.dp)) { Text(stringResource(R.string.move_frame)) }
+                                        OutlinedButton(onClick = { enqueue { resizeBinding(id) } }, shape = Rounded, modifier = Modifier.weight(1f).heightIn(min = 56.dp)) { Text(stringResource(R.string.resize_frame)) }
+                                    }
                                 }
                                 state.message?.let { Text(it, fontSize = 13.sp, maxLines = 3) }
                             }
@@ -270,7 +278,7 @@ class RoomActivity : AppSystemActivity() {
     }
     private fun mode(value: Mode) {
         android.util.Log.i("HomePanelSpatial", "Mode: $value")
-        ui.update { it.copy(mode = value, target = "", targetBinding = null, canSave = false, countdown = 0, saving = false) }; actionsFocus.reset(); actionsPose=null; actionsHead=null; selectionInput.reset(); panelPointers.clear(); focusedId = null; freezeAt = 0L
+        ui.update { it.copy(mode = value, target = "", targetBinding = null, canSave = false, countdown = 0, saving = false, warning = null, controlBinding = if (value == Mode.CONTROL) it.controlBinding else null) }; actionsFocus.reset(); actionsPose=null; actionsHead=null; selectionInput.reset(); panelPointers.clear(); focusedId = null; freezeAt = 0L
         openingBindingId = null
         if (value != Mode.CONTROL) controlBindingId = null
         if(value != Mode.AIM && value != Mode.CONFIRM) { candidate = null; frozen = null; preview?.hide() }
@@ -304,6 +312,18 @@ class RoomActivity : AppSystemActivity() {
         mode(Mode.CONFIRM)
         ui.update { it.copy(canSave = true) }
     }
+    /** Resize keeps the saved position: the existing placement goes straight to confirmation with its size editable. */
+    private fun resizeBinding(id: String) {
+        val b = store.state.value.bindings.find { it.id == id } ?: return
+        val room = mruk.rooms.find { it.anchor.uuid.toString() == b.roomId }
+        val anchor = room?.anchors?.find { it.tryGetComponent<MRUKAnchor>()?.uuid?.toString() == b.anchorId }
+        if (anchor == null) { runOnUiThread { store.notify(text(R.string.room_changed)) }; return }
+        aimDevice = b.deviceKey; aimEntity = b.entityId
+        val local = b.localPose()
+        frozen = Placement(b.roomId, b.anchorId, local, getAbsoluteTransform(anchor) * local, b.deviceKey, b.entityId, b.label, b.serverKey, b.width, b.height)
+        mode(Mode.CONFIRM)
+        ui.update { it.copy(width = b.width, height = b.height, canSave = true) }
+    }
     private fun savePlacement() {
         val p = frozen ?: return
         if (ui.value.saving) return
@@ -312,7 +332,7 @@ class RoomActivity : AppSystemActivity() {
             ui.update { it.copy(canSave = false, status = text(R.string.room_changed)) }; return
         }
         if (store.state.value.serverKey != p.server) { mode(Mode.HOME); return }
-        val binding = SpatialBinding(serverKey = p.server, deviceKey = p.device, entityId = p.entity, roomId = p.room, anchorId = p.anchor, x = p.local.t.x, y = p.local.t.y, z = p.local.t.z, label = p.label, width = p.width, height = p.height, qw = p.local.q.w, qx = p.local.q.x, qy = p.local.q.y, qz = p.local.q.z)
+        val binding = SpatialBinding(serverKey = p.server, deviceKey = p.device, entityId = p.entity, roomId = p.room, anchorId = p.anchor, x = p.local.t.x, y = p.local.t.y, z = p.local.t.z, label = p.label, width = ui.value.width, height = ui.value.height, qw = p.local.q.w, qx = p.local.q.x, qy = p.local.q.y, qz = p.local.q.z)
         ui.update { it.copy(saving = true) }
         runOnUiThread {
             val saved = store.saveBinding(binding)
@@ -330,6 +350,8 @@ class RoomActivity : AppSystemActivity() {
     }
     private var focusedId: String? = null
     private var resolvedReported: Set<String>? = null
+    private var occluded = emptySet<String>()
+    private var lastOcclusion = 0L
     private fun openBinding(id: String) {
         if (openingBindingId != null) return
         val binding = store.state.value.bindings.find { it.id == id } ?: return
@@ -343,6 +365,7 @@ class RoomActivity : AppSystemActivity() {
                     openingBindingId = null
                     val current = store.state.value
                     if (selected && current.serverKey == binding.serverKey && current.bindings.any { it.id == id } && current.selectedDevice == binding.deviceKey && current.selectedEntity == binding.entityId) {
+                        ui.update { it.copy(controlBinding = id) }
                         mode(Mode.CONTROL)
                         controlBindingId = id
                         android.util.Log.i("HomePanelSpatial", "Opened controls for saved placement")
@@ -390,7 +413,15 @@ class RoomActivity : AppSystemActivity() {
         val forward = head.q * Vector3(0f,0f,1f)
         var lookedTarget: String? = null
         if (ui.value.mode == Mode.EXPLORE) {
-            lookedTarget = chooseFrameTarget(head, resolved.map { TargetFrame(it.first.id, it.second, it.first.width, it.first.height) }, focusedId)
+            // Frames hidden behind furniture are not targets; checked a few times a second.
+            if (now - lastOcclusion > 250) {
+                lastOcclusion = now
+                occluded = if (room == null) emptySet() else resolved.filter { (_, pose) ->
+                    val delta = pose.t - head.t; val distance = delta.length()
+                    distance > .3f && mruk.raycastRoom(room.anchor.uuid, head.t, delta.normalize(), distance, SurfaceType.VOLUME)?.let { it.hitDistance < distance - .12f } == true
+                }.map { it.first.id }.toSet()
+            }
+            lookedTarget = chooseFrameTarget(head, resolved.filter { it.first.id !in occluded }.map { TargetFrame(it.first.id, it.second, it.first.width, it.first.height) }, focusedId)
             focusedId = lookedTarget
         }
         // A removed/unresolved anchor cannot stay selected just because a pointer hovers a panel.
@@ -407,6 +438,8 @@ class RoomActivity : AppSystemActivity() {
         }
         if (now-lastFrameUi > 500) {
             lastFrameUi = now
+            val kind = room?.anchors?.flatMap { e -> e.tryGetComponent<MRUKAnchor>()?.let { a -> (0 until a.labelsCount).mapNotNull { i -> runCatching { a.labels.get(i) }.getOrNull() } }.orEmpty() }?.let(::roomKindFromLabels) ?: RoomKind.UNKNOWN
+            if (ui.value.roomKind != kind) ui.update { it.copy(roomKind = kind) }
             ui.update { it.copy(resolved = resolved.size, total = state.bindings.size, handsTracked = hands.any { sample -> sample.active && sample.type == ControllerType.HAND }, countdown = if (freezeAt == 0L) 0 else ((freezeAt - now).coerceAtLeast(0) + 999).toInt() / 1000) }
             val resolution = resolved.size to state.bindings.size
             if (lastResolution != resolution) { lastResolution = resolution; android.util.Log.i("HomePanelSpatial", "Resolved placements: ${resolution.first}/${resolution.second}") }
@@ -431,6 +464,14 @@ class RoomActivity : AppSystemActivity() {
                 } else null
                 preview?.show(worldPose, ui.value.width, ui.value.height, ready = candidate != null)
                 val help = if (ui.value.surface && !snapped) R.string.frame_no_surface else R.string.frame_aim
+                val overlap = resolved.firstOrNull { (b, pose) -> b.entityId != aimEntity && frameOverlap(worldPose, ui.value.width, ui.value.height, pose, b.width, b.height) > .5f }?.first
+                val area = device?.area.orEmpty()
+                val warning = when {
+                    overlap != null -> AppLanguage.text(this, R.string.frame_overlaps, overlap.label)
+                    device != null && areaMismatch(ui.value.roomKind, areaKind(area)) -> AppLanguage.text(this, R.string.area_mismatch, device.name, area, text(if (ui.value.roomKind == RoomKind.BEDROOM) R.string.room_kind_bedroom else R.string.room_kind_living))
+                    else -> null
+                }
+                if (ui.value.warning != warning) ui.update { it.copy(warning = warning) }
                 if(ui.value.canSave != (candidate != null) || ui.value.aimHint != help) ui.update { it.copy(canSave = candidate != null, aimHint = help) }
                 if((selected && now - aimSince > 700) || (freezeAt != 0L && now >= freezeAt)) { freezeAt = 0L; freeze() }
             }
@@ -438,7 +479,7 @@ class RoomActivity : AppSystemActivity() {
                 frozen?.let { p ->
                     val anchor = anchors["${p.room}/${p.anchor}"]
                     val localized = anchor != null
-                    if(localized) preview?.show(getAbsoluteTransform(anchor!!) * p.local,p.width,p.height) else preview?.hide()
+                    if(localized) preview?.show(getAbsoluteTransform(anchor!!) * p.local,ui.value.width,ui.value.height) else preview?.hide()
                     if(ui.value.canSave != localized) ui.update { it.copy(canSave = localized) }
                 }
             }
