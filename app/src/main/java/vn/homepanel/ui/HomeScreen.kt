@@ -100,17 +100,18 @@ import kotlin.math.roundToInt
                         val rooms = summarizeRooms(displayCatalog)
                         Text(if (current == R.string.rooms) stringResource(R.string.home_summary, rooms.size, displayCatalog.devices.count { d -> d.entities.any { it.state == "on" } }, state.bindings.size)
                             else stringResource(R.string.visible_device_count, displayCatalog.devices.size, state.catalog.devices.size), color = Muted, fontSize = 15.sp)
-                        if (current == R.string.rooms) Text(stringResource(R.string.visible_device_count, displayCatalog.devices.size, state.catalog.devices.size), color = Muted, fontSize = 12.sp)
+                        // The demo notice is one line here rather than a banner that takes room from the cards.
+                        if (state.demo) Text(stringResource(R.string.demo_banner), color = Amber, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     if (current != R.string.placed && state.catalog.devices.isNotEmpty()) Segmented(listOf(false, true), showAllDevices, { all -> stringResource(if (all) R.string.all_devices else R.string.everyday_devices) }, { changeVisibility(it) })
                     if (!inRoom) Button(onClick = onEnterRoom, enabled = state.connected, shape = Rounded, contentPadding = PaddingValues(horizontal = 22.dp), modifier = Modifier.heightIn(min = 56.dp)) { Text(stringResource(R.string.enter_room), fontWeight = FontWeight.SemiBold, fontSize = 16.sp) }
                     else { onExplore?.let { Button(onClick = it, shape = Rounded, modifier = Modifier.heightIn(min = 56.dp)) { Text(stringResource(R.string.explore)) } }; onExit?.let { OutlinedButton(onClick = it, shape = Rounded, modifier = Modifier.heightIn(min = 56.dp)) { Text(stringResource(R.string.return_window)) } } }
                 }
-                if (hasHome && current != R.string.connection && (state.demo || !state.connected)) {
+                if (hasHome && current != R.string.connection && !state.demo && !state.connected) {
                     Surface(color = Amber.copy(alpha = .08f), shape = Rounded) {
                         Row(Modifier.padding(start = 18.dp, end = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(if (state.demo) stringResource(R.string.demo_banner) else stringResource(R.string.stale_data, state.status), Modifier.weight(1f), color = Amber, fontSize = 14.sp)
-                            TextButton(onClick = { page = R.string.connection }) { Text(stringResource(if (state.demo) R.string.connect_ha else R.string.reconnect), color = Amber) }
+                            Text(stringResource(R.string.stale_data, state.status), Modifier.weight(1f), color = Amber, fontSize = 14.sp)
+                            TextButton(onClick = { page = R.string.connection }) { Text(stringResource(R.string.reconnect), color = Amber) }
                         }
                     }
                 }
@@ -122,14 +123,6 @@ import kotlin.math.roundToInt
                     if (suggestions.isNotEmpty() && current != R.string.connection) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(stringResource(R.string.suggest_place), color = Mint, fontSize = 13.sp)
                         suggestions.take(3).forEach { device -> OutlinedButton(onClick = { onSuggest(device) }, shape = Rounded) { Text(device.name, maxLines = 1, overflow = TextOverflow.Ellipsis) } }
-                    }
-                }
-                state.message?.let { message ->
-                    Surface(color = Raised, shape = Rounded) {
-                        Row(Modifier.padding(start = 18.dp, end = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(message, Modifier.weight(1f), fontSize = 14.sp)
-                            TextButton(onClick = { store.notify(null) }) { Text(stringResource(R.string.close)) }
-                        }
                     }
                 }
                 when (current) {
@@ -144,8 +137,8 @@ import kotlin.math.roundToInt
                         } else if (displayCatalog.devices.isEmpty()) {
                             EmptyCard(stringResource(R.string.no_everyday_devices), stringResource(R.string.advanced_devices_help))
                         } else {
-                            HomeOverviewStrip(remember(state.catalog) { homeOverview(state.catalog) })
-                            RoomOverview(displayCatalog, state.connected, state.bindings.map { it.deviceKey }.toSet()) { name ->
+                            val overview = remember(state.catalog) { homeOverview(state.catalog) }
+                            RoomOverview(displayCatalog, state.connected, state.bindings.map { it.deviceKey }.toSet(), header = { HomeOverviewStrip(overview) }) { name ->
                             roomFilter = name; search = ""; showDetail = false; fullControls = false; page = R.string.devices
                             displayCatalog.devices.firstOrNull { it.belongsToRoom(name) }?.let { store.select(it.key, primaryEntity(it,name)?.id) }
                         }
@@ -221,6 +214,16 @@ import kotlin.math.roundToInt
                             }
                         }
                     }
+                }
+            }
+        }
+        // Short confirmations float over the bottom edge and go away on their own instead of pushing content down.
+        state.message?.let { message ->
+            LaunchedEffect(message) { kotlinx.coroutines.delay(4_000); if (store.state.value.message == message) store.notify(null) }
+            Surface(color = Raised, shape = Rounded, shadowElevation = 6.dp, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 20.dp, start = 32.dp, end = 32.dp).widthIn(max = 720.dp)) {
+                Row(Modifier.padding(start = 18.dp, end = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(message, Modifier.weight(1f, fill = false), fontSize = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    TextButton(onClick = { store.notify(null) }) { Text(stringResource(R.string.close)) }
                 }
             }
         }
