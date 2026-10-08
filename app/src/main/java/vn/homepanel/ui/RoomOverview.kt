@@ -21,11 +21,13 @@ import vn.homepanel.ha.primaryEntity
 import vn.homepanel.ha.summarizeRooms
 
 /** One card per HA area: what is on, the first few devices with their state, and a nudge to place one not yet placed. */
-@Composable fun RoomOverview(catalog: Catalog, connected: Boolean, placed: Set<String>, onRoom: (String) -> Unit) {
+/** [header] scrolls with the cards, so a summary above them never squeezes the rooms into a sliver. */
+@Composable fun RoomOverview(catalog: Catalog, connected: Boolean, placed: Set<String>, header: @Composable () -> Unit = {}, onRoom: (String) -> Unit) {
     val rooms = summarizeRooms(catalog)
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         if (!connected) Text(stringResource(R.string.rooms_stale), color = Amber, fontSize = 14.sp)
         LazyVerticalGrid(columns = GridCells.Adaptive(280.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            item(span = { GridItemSpan(maxLineSpan) }) { header() }
             items(rooms, key = { it.id }) { room ->
                 Surface(color = Card, shape = RoundedCornerShape(24.dp), border = BorderStroke(1.dp, Line), modifier = Modifier.fillMaxWidth().clickable { onRoom(room.id) }) {
                     Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
